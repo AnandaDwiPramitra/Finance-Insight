@@ -17,6 +17,7 @@ import { useToast } from '../context/ToastContext';
 import { Transaction } from '../types/finance';
 import { resolveTransactionPeriodKey } from '../utils/calculations';
 import { formatDateShort, formatMoney } from '../utils/formatMoney';
+import { getJenisBadgeClass } from '../utils/semanticColors';
 
 const PAGE_SIZE = 10;
 
@@ -125,10 +126,10 @@ export const TransactionsPage: React.FC = () => {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h2 className="font-display text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">
+          <h2 className="font-display text-xl sm:text-2xl font-bold text-zinc-900 dark:text-[#FAFAFA]">
             Semua Transaksi
           </h2>
-          <p className="mt-1 text-xs sm:text-sm text-slate-500 dark:text-slate-400">
+          <p className="mt-1 text-xs sm:text-sm text-zinc-500 dark:text-zinc-400">
             Kelola, cari, filter, import, dan export seluruh catatan pemasukan & pengeluaran
           </p>
         </div>
@@ -140,7 +141,7 @@ export const TransactionsPage: React.FC = () => {
               setEditingTx(null);
               setModalOpen(true);
             }}
-            className="min-h-[42px] inline-flex items-center gap-1.5 rounded-xl bg-teal-700 px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800 whitespace-nowrap"
+            className="min-h-[42px] inline-flex items-center gap-1.5 rounded-xl bg-zinc-900 text-white hover:bg-zinc-800 dark:bg-[#FAFAFA] dark:text-[#09090B] dark:hover:bg-zinc-200 px-4 py-2 text-sm font-semibold transition-colors whitespace-nowrap"
           >
             <Plus className="h-4 w-4" />
             <span>Tambah Transaksi</span>
@@ -148,9 +149,9 @@ export const TransactionsPage: React.FC = () => {
           <button
             type="button"
             onClick={() => setImportOpen(true)}
-            className="min-h-[42px] inline-flex items-center gap-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3.5 py-2 text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 whitespace-nowrap"
+            className="min-h-[42px] inline-flex items-center gap-1.5 rounded-xl border border-zinc-300 dark:border-white/[0.12] bg-white dark:bg-[#18181B] px-3.5 py-2 text-sm font-medium text-zinc-800 dark:text-[#FAFAFA] hover:bg-zinc-100 dark:hover:bg-white/[0.08] transition-colors whitespace-nowrap"
           >
-            <Upload className="h-4 w-4" />
+            <Upload className="h-4 w-4 text-zinc-500 dark:text-zinc-400" />
             <span>Import Data</span>
           </button>
           <ExportDataButton
@@ -161,7 +162,7 @@ export const TransactionsPage: React.FC = () => {
             type="button"
             onClick={handleResetAllData}
             disabled={transactions.length === 0}
-            className="min-h-[42px] inline-flex items-center gap-1.5 rounded-xl border border-rose-200 dark:border-rose-900/60 bg-rose-50/70 dark:bg-rose-950/30 px-3.5 py-2 text-sm font-medium text-rose-700 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-900/50 disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
+            className="min-h-[42px] inline-flex items-center gap-1.5 rounded-xl border border-rose-500/25 bg-rose-500/10 px-3.5 py-2 text-sm font-medium text-rose-600 dark:text-rose-400/90 hover:bg-rose-500/15 disabled:opacity-40 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
           >
             <Trash2 className="h-4 w-4" />
             <span>Reset Data</span>
@@ -170,10 +171,10 @@ export const TransactionsPage: React.FC = () => {
       </div>
 
       {/* Filter & Search Bar */}
-      <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 space-y-3">
+      <div className="rounded-2xl border border-zinc-200 dark:border-white/[0.08] bg-white dark:bg-[#121215] p-4 space-y-3">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           <div className="relative md:col-span-2">
-            <Search className="h-4 w-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+            <Search className="h-4 w-4 text-zinc-500 dark:text-zinc-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
             <input
               type="text"
               value={search}
@@ -182,16 +183,16 @@ export const TransactionsPage: React.FC = () => {
                 setCurrentPage(1);
               }}
               placeholder="Cari keterangan, kategori, metode, akun..."
-              className="w-full min-h-[42px] rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 pl-10 pr-3.5 py-2 text-sm text-slate-900 dark:text-slate-100 focus:border-teal-600 focus:outline-none"
+              className="w-full min-h-[42px] rounded-xl border border-zinc-200 dark:border-white/[0.12] bg-zinc-50 dark:bg-[#09090B] pl-10 pr-3.5 py-2 text-sm text-zinc-900 dark:text-[#FAFAFA] placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:border-zinc-500 dark:focus:border-white/40 focus:outline-none"
             />
           </div>
 
           <button
             type="button"
             onClick={() => setSortOrder((prev) => (prev === 'desc' ? 'asc' : 'desc'))}
-            className="min-h-[42px] inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-3.5 py-2 text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
+            className="min-h-[42px] inline-flex items-center justify-center gap-2 rounded-xl border border-zinc-300 dark:border-white/[0.12] bg-zinc-50 dark:bg-[#18181B] px-3.5 py-2 text-sm font-medium text-zinc-800 dark:text-[#FAFAFA] hover:bg-zinc-100 dark:hover:bg-white/[0.08] transition-colors"
           >
-            <ArrowUpDown className="h-4 w-4" />
+            <ArrowUpDown className="h-4 w-4 text-zinc-500 dark:text-zinc-400" />
             <span>Urut Tanggal: {sortOrder === 'desc' ? 'Terbaru' : 'Terlama'}</span>
           </button>
         </div>
@@ -204,10 +205,10 @@ export const TransactionsPage: React.FC = () => {
               setMonthFilter(e.target.value);
               setCurrentPage(1);
             }}
-            className="min-h-[40px] rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 text-xs sm:text-sm"
+            className="min-h-[40px] rounded-xl border border-zinc-200 dark:border-white/[0.12] bg-white dark:bg-[#09090B] px-3 text-xs sm:text-sm text-zinc-900 dark:text-[#FAFAFA]"
           >
             {availablePeriods.map((p) => (
-              <option key={p.value} value={p.value}>
+              <option key={p.value} value={p.value} className="bg-white dark:bg-[#121215]">
                 {p.label}
               </option>
             ))}
@@ -220,11 +221,11 @@ export const TransactionsPage: React.FC = () => {
               setCategoryFilter(e.target.value);
               setCurrentPage(1);
             }}
-            className="min-h-[40px] rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 text-xs sm:text-sm"
+            className="min-h-[40px] rounded-xl border border-zinc-200 dark:border-white/[0.12] bg-white dark:bg-[#09090B] px-3 text-xs sm:text-sm text-zinc-900 dark:text-[#FAFAFA]"
           >
-            <option value="all">Semua Kategori</option>
+            <option value="all" className="bg-white dark:bg-[#121215]">Semua Kategori</option>
             {categories.map((c) => (
-              <option key={c} value={c}>
+              <option key={c} value={c} className="bg-white dark:bg-[#121215]">
                 {c}
               </option>
             ))}
@@ -237,15 +238,15 @@ export const TransactionsPage: React.FC = () => {
               setJenisFilter(e.target.value);
               setCurrentPage(1);
             }}
-            className="min-h-[40px] rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 text-xs sm:text-sm"
+            className="min-h-[40px] rounded-xl border border-zinc-200 dark:border-white/[0.12] bg-white dark:bg-[#09090B] px-3 text-xs sm:text-sm text-zinc-900 dark:text-[#FAFAFA]"
           >
-            <option value="all">Semua Jenis</option>
-            <option value="Kebutuhan">Kebutuhan</option>
-            <option value="Keinginan">Keinginan</option>
-            <option value="Pemasukan">Pemasukan</option>
-            <option value="Transfer">Transfer</option>
-            <option value="Tabungan">Tabungan</option>
-            <option value="Perlu Ditinjau">Perlu Ditinjau</option>
+            <option value="all" className="bg-white dark:bg-[#121215]">Semua Jenis</option>
+            <option value="Kebutuhan" className="bg-white dark:bg-[#121215]">Kebutuhan</option>
+            <option value="Keinginan" className="bg-white dark:bg-[#121215]">Keinginan</option>
+            <option value="Pemasukan" className="bg-white dark:bg-[#121215]">Pemasukan</option>
+            <option value="Transfer" className="bg-white dark:bg-[#121215]">Transfer</option>
+            <option value="Tabungan" className="bg-white dark:bg-[#121215]">Tabungan</option>
+            <option value="Perlu Ditinjau" className="bg-white dark:bg-[#121215]">Perlu Ditinjau</option>
           </select>
 
           <select
@@ -255,11 +256,11 @@ export const TransactionsPage: React.FC = () => {
               setMethodFilter(e.target.value);
               setCurrentPage(1);
             }}
-            className="min-h-[40px] rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 text-xs sm:text-sm"
+            className="min-h-[40px] rounded-xl border border-zinc-200 dark:border-white/[0.12] bg-white dark:bg-[#09090B] px-3 text-xs sm:text-sm text-zinc-900 dark:text-[#FAFAFA]"
           >
-            <option value="all">Semua Metode</option>
+            <option value="all" className="bg-white dark:bg-[#121215]">Semua Metode</option>
             {methodOptions.map((m) => (
-              <option key={m} value={m}>
+              <option key={m} value={m} className="bg-white dark:bg-[#121215]">
                 {m}
               </option>
             ))}
@@ -272,11 +273,11 @@ export const TransactionsPage: React.FC = () => {
               setAccountFilter(e.target.value);
               setCurrentPage(1);
             }}
-            className="min-h-[40px] rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 px-3 text-xs sm:text-sm col-span-2 sm:col-span-1"
+            className="min-h-[40px] rounded-xl border border-zinc-200 dark:border-white/[0.12] bg-white dark:bg-[#09090B] px-3 text-xs sm:text-sm text-zinc-900 dark:text-[#FAFAFA] col-span-2 sm:col-span-1"
           >
-            <option value="all">Semua Akun</option>
+            <option value="all" className="bg-white dark:bg-[#121215]">Semua Akun</option>
             {accounts.map((a) => (
-              <option key={a.id} value={a.name}>
+              <option key={a.id} value={a.name} className="bg-white dark:bg-[#121215]">
                 {a.name}
               </option>
             ))}
@@ -285,20 +286,20 @@ export const TransactionsPage: React.FC = () => {
       </div>
 
       {/* Table Container with horizontal scroll on mobile */}
-      <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden">
+      <div className="rounded-2xl border border-zinc-200 dark:border-white/[0.08] bg-white dark:bg-[#121215] overflow-hidden">
         {paginated.length === 0 ? (
           <div className="p-10 text-center">
-            <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">
+            <p className="text-sm font-semibold text-zinc-800 dark:text-[#FAFAFA]">
               Tidak ada transaksi yang sesuai filter.
             </p>
-            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+            <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
               Ubah kata kunci pencarian atau tambahkan transaksi baru.
             </p>
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs sm:text-sm border-collapse min-w-[820px]">
-              <thead className="bg-slate-50 dark:bg-slate-950 text-slate-600 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800">
+              <thead className="bg-zinc-50 dark:bg-[#09090B] text-zinc-500 dark:text-zinc-400 border-b border-zinc-200 dark:border-white/[0.08]">
                 <tr>
                   <th className="py-3 px-4 font-semibold">Tanggal</th>
                   <th className="py-3 px-4 font-semibold">Keterangan</th>
@@ -312,43 +313,61 @@ export const TransactionsPage: React.FC = () => {
                   <th className="py-3 px-4 font-semibold text-right">Aksi</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+              <tbody className="divide-y divide-zinc-100 dark:divide-white/[0.06]">
                 {paginated.map((tx) => (
                   <tr
                     key={tx.id}
-                    className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors"
+                    className="hover:bg-zinc-50 dark:hover:bg-white/[0.03] transition-colors"
                   >
-                    <td className="py-3 px-4 font-mono-num whitespace-nowrap text-slate-600 dark:text-slate-400">
+                    <td className="py-3 px-4 font-mono-num tabular-nums whitespace-nowrap text-zinc-600 dark:text-zinc-400">
                       {formatDateShort(tx.tanggal)}
                     </td>
-                    <td className="py-3 px-4 font-medium text-slate-900 dark:text-white">
+                    <td className="py-3 px-4 font-medium text-zinc-900 dark:text-[#FAFAFA]">
                       <button
                         type="button"
                         onClick={() => navigate(`/transactions/${tx.id}`)}
-                        className="text-left hover:text-teal-700 dark:hover:text-teal-400 hover:underline"
+                        className="text-left hover:underline"
                       >
                         {tx.keterangan}
                       </button>
                     </td>
-                    <td className="py-3 px-4 whitespace-nowrap text-slate-700 dark:text-slate-300">
+                    <td className="py-3 px-4 whitespace-nowrap text-zinc-700 dark:text-zinc-300">
                       {tx.kategori}
                     </td>
-                    <td className="py-3 px-4 whitespace-nowrap text-slate-600 dark:text-slate-400">
-                      {tx.jenisPengeluaran}
+                    <td className="py-3 px-4 whitespace-nowrap">
+                      <span
+                        className={`inline-flex items-center rounded-md border px-2 py-0.5 text-[11px] font-medium ${getJenisBadgeClass(
+                          tx.jenisPengeluaran
+                        )}`}
+                      >
+                        {tx.jenisPengeluaran}
+                      </span>
                     </td>
-                    <td className="py-3 px-4 whitespace-nowrap text-slate-600 dark:text-slate-400">
+                    <td className="py-3 px-4 whitespace-nowrap text-zinc-600 dark:text-zinc-400">
                       {tx.metode}
                     </td>
-                    <td className="py-3 px-4 whitespace-nowrap text-slate-700 dark:text-slate-300">
+                    <td className="py-3 px-4 whitespace-nowrap text-zinc-700 dark:text-zinc-300">
                       {tx.akun}
                     </td>
-                    <td className="py-3 px-4 font-mono-num text-right whitespace-nowrap text-emerald-700 dark:text-emerald-400">
+                    <td
+                      className={`py-3 px-4 font-mono-num tabular-nums text-right whitespace-nowrap font-semibold ${
+                        tx.masuk > 0
+                          ? 'text-emerald-600 dark:text-emerald-400'
+                          : 'text-zinc-400 dark:text-zinc-500 font-normal'
+                      }`}
+                    >
                       {tx.masuk > 0 ? formatMoney(tx.masuk) : '-'}
                     </td>
-                    <td className="py-3 px-4 font-mono-num text-right whitespace-nowrap text-rose-700 dark:text-rose-400">
+                    <td
+                      className={`py-3 px-4 font-mono-num tabular-nums text-right whitespace-nowrap font-semibold ${
+                        tx.keluar > 0
+                          ? 'text-rose-600 dark:text-rose-400'
+                          : 'text-zinc-400 dark:text-zinc-500 font-normal'
+                      }`}
+                    >
                       {tx.keluar > 0 ? formatMoney(tx.keluar) : '-'}
                     </td>
-                    <td className="py-3 px-4 font-mono-num text-right whitespace-nowrap font-semibold text-slate-900 dark:text-white">
+                    <td className="py-3 px-4 font-mono-num tabular-nums text-right whitespace-nowrap font-semibold text-sky-600 dark:text-sky-400">
                       {formatMoney(tx.runningBalance)}
                     </td>
                     <td className="py-3 px-4 text-right whitespace-nowrap">
@@ -358,7 +377,7 @@ export const TransactionsPage: React.FC = () => {
                           onClick={() => navigate(`/transactions/${tx.id}`)}
                           aria-label="Lihat detail"
                           title="Detail"
-                          className="p-2 rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-900 dark:hover:bg-slate-800 dark:hover:text-white"
+                          className="p-2 rounded-lg text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900 dark:hover:bg-white/[0.06] dark:hover:text-[#FAFAFA]"
                         >
                           <Eye className="h-4 w-4" />
                         </button>
@@ -370,7 +389,7 @@ export const TransactionsPage: React.FC = () => {
                           }}
                           aria-label="Edit transaksi"
                           title="Edit"
-                          className="p-2 rounded-lg text-slate-500 hover:bg-slate-100 hover:text-teal-700 dark:hover:bg-slate-800 dark:hover:text-teal-400"
+                          className="p-2 rounded-lg text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900 dark:hover:bg-white/[0.06] dark:hover:text-[#FAFAFA]"
                         >
                           <Edit2 className="h-4 w-4" />
                         </button>
@@ -379,7 +398,7 @@ export const TransactionsPage: React.FC = () => {
                           onClick={() => handleDelete(tx)}
                           aria-label="Hapus transaksi"
                           title="Hapus"
-                          className="p-2 rounded-lg text-slate-500 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/40 dark:hover:text-rose-400"
+                          className="p-2 rounded-lg text-zinc-500 hover:bg-rose-500/10 hover:text-rose-600 dark:hover:text-rose-400"
                         >
                           <Trash2 className="h-4 w-4" />
                         </button>
@@ -394,16 +413,18 @@ export const TransactionsPage: React.FC = () => {
 
         {/* Pagination */}
         {filtered.length > PAGE_SIZE && (
-          <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-t border-slate-200 dark:border-slate-800 text-xs sm:text-sm">
-            <span className="text-slate-500 dark:text-slate-400">
-              Halaman {safePage} dari {totalPages} · Total {filtered.length} transaksi
+          <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-t border-zinc-200 dark:border-white/[0.08] text-xs sm:text-sm">
+            <span className="text-zinc-500 dark:text-zinc-400">
+              Halaman <span className="font-mono-num tabular-nums">{safePage}</span> dari{' '}
+              <span className="font-mono-num tabular-nums">{totalPages}</span> · Total{' '}
+              <span className="font-mono-num tabular-nums">{filtered.length}</span> transaksi
             </span>
             <div className="flex items-center gap-2">
               <button
                 type="button"
                 disabled={safePage <= 1}
                 onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                className="min-h-[36px] rounded-lg border border-slate-200 dark:border-slate-700 px-3 py-1 font-medium disabled:opacity-40"
+                className="min-h-[36px] rounded-lg border border-zinc-300 dark:border-white/[0.12] bg-white dark:bg-[#18181B] px-3 py-1 font-medium text-zinc-800 dark:text-[#FAFAFA] hover:bg-zinc-100 dark:hover:bg-white/[0.08] disabled:opacity-40"
               >
                 Sebelumnya
               </button>
@@ -411,7 +432,7 @@ export const TransactionsPage: React.FC = () => {
                 type="button"
                 disabled={safePage >= totalPages}
                 onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                className="min-h-[36px] rounded-lg border border-slate-200 dark:border-slate-700 px-3 py-1 font-medium disabled:opacity-40"
+                className="min-h-[36px] rounded-lg border border-zinc-300 dark:border-white/[0.12] bg-white dark:bg-[#18181B] px-3 py-1 font-medium text-zinc-800 dark:text-[#FAFAFA] hover:bg-zinc-100 dark:hover:bg-white/[0.08] disabled:opacity-40"
               >
                 Berikutnya
               </button>

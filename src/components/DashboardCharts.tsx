@@ -17,17 +17,136 @@ import {
   YAxis,
 } from 'recharts';
 import { RotateCcw, ZoomIn, ZoomOut } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 import { useFinance } from '../context/FinanceContext';
 import { TrendDataPoint } from '../utils/calculations';
 import { computeNiceAxisScale, formatMoney } from '../utils/formatMoney';
 import { ChartCard } from './ChartCard';
 
-const PAYMENT_COLORS = ['#0F766E', '#0284C7', '#D97706', '#6366F1', '#64748B', '#059669'];
-const NEEDS_WANTS_COLORS = ['#0F766E', '#D97706', '#64748B'];
+const PAYMENT_COLORS = ['#0369A1', '#0F766E', '#B45309', '#6D28D9', '#BE123C', '#4338CA'];
+
+function getNeedsWantsColor(name: string): string {
+  const lower = name.toLowerCase();
+  if (lower.includes('kebutuhan')) return '#10B981';
+  if (lower.includes('keinginan')) return '#F59E0B';
+  return '#71717A';
+}
+
+function getAccountBarColor(name: string): string {
+  const lower = name.toLowerCase();
+  if (lower.includes('tabungan') || lower.includes('seabank')) return '#B45309';
+  if (lower.includes('total')) return '#6D28D9';
+  if (lower.includes('likuid') || lower.includes('sisa')) return '#0284C7';
+  if (lower.includes('digital') || lower.includes('shopee')) return '#0369A1';
+  return '#0F766E';
+}
 
 function formatPercentId(pct: number): string {
   return `${pct.toFixed(1).replace('.', ',')}%`;
 }
+
+interface CustomTooltipPayloadItem {
+  name?: string | number;
+  value?: number | string;
+  color?: string;
+  dataKey?: string | number;
+  payload?: {
+    name?: string;
+    kategori?: string;
+    percentage?: number;
+  };
+}
+
+interface CustomChartTooltipProps {
+  active?: boolean;
+  payload?: CustomTooltipPayloadItem[];
+  label?: string | number;
+  isDark: boolean;
+  labelPrefix?: string;
+  valueLabelOverride?: string;
+  showPercentage?: boolean;
+  percentDecimals?: number;
+  resolveValueColor?: (item: CustomTooltipPayloadItem) => string | undefined;
+}
+
+const CustomChartTooltip: React.FC<CustomChartTooltipProps> = ({
+  active,
+  payload,
+  label,
+  isDark,
+  labelPrefix = '',
+  valueLabelOverride,
+  showPercentage = false,
+  percentDecimals = 1,
+  resolveValueColor,
+}) => {
+  if (!active || !payload || payload.length === 0) return null;
+
+  const heading =
+    label !== undefined && label !== null && String(label).trim() !== ''
+      ? `${labelPrefix}${label}`
+      : payload[0]?.payload?.name || payload[0]?.name || '';
+
+  return (
+    <div
+      style={{
+        backgroundColor: isDark ? '#18181B' : '#FFFFFF',
+        border: isDark ? '1px solid rgba(255,255,255,0.12)' : '1px solid #E4E4E7',
+        borderRadius: '12px',
+        padding: '10px 12px',
+        boxShadow: isDark
+          ? '0 10px 25px -5px rgba(0,0,0,0.6)'
+          : '0 10px 25px -5px rgba(0,0,0,0.1)',
+      }}
+      className="min-w-[160px] text-xs"
+    >
+      {heading && (
+        <p
+          style={{ color: isDark ? '#A1A1AA' : '#52525B' }}
+          className="font-semibold mb-1.5"
+        >
+          {String(heading)}
+        </p>
+      )}
+      <div className="space-y-1">
+        {payload.map((entry, idx) => {
+          const itemLabel = valueLabelOverride || String(entry.name || entry.payload?.name || 'Nilai');
+          const numericVal = Number(entry.value ?? 0);
+          const pct = entry.payload?.percentage;
+          const pctText =
+            showPercentage && typeof pct === 'number'
+              ? ` (${percentDecimals === 0 ? `${pct}%` : formatPercentId(pct)})`
+              : '';
+          const valColor =
+            resolveValueColor?.(entry) || (isDark ? '#FAFAFA' : '#18181B');
+          const dotColor = entry.color || valColor;
+
+          return (
+            <div key={idx} className="flex items-center justify-between gap-4">
+              <span
+                style={{ color: isDark ? '#A1A1AA' : '#52525B' }}
+                className="inline-flex items-center gap-1.5"
+              >
+                <span
+                  className="h-2 w-2 rounded-full shrink-0"
+                  style={{ backgroundColor: dotColor }}
+                />
+                <span>{itemLabel}</span>
+              </span>
+              <span
+                style={{ color: valColor }}
+                className="font-mono-num tabular-nums font-semibold"
+              >
+                {formatMoney(numericVal)}
+                {pctText}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
 
 interface TimelineRangeSliderProps {
   data: TrendDataPoint[];
@@ -151,7 +270,7 @@ const TimelineRangeSlider: React.FC<TimelineRangeSliderProps> = ({
         ref={trackRef}
         onDoubleClick={onReset}
         title="Seret pegangan kiri/kanan untuk zoom tanggal, atau klik ganda untuk Reset Zoom"
-        className="relative h-8 w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950/60 overflow-hidden"
+        className="relative h-8 w-full rounded-lg border border-zinc-200 dark:border-white/[0.08] bg-zinc-50 dark:bg-[#09090B] overflow-hidden"
       >
         <svg
           viewBox="0 0 100 24"
@@ -159,10 +278,10 @@ const TimelineRangeSlider: React.FC<TimelineRangeSliderProps> = ({
           className="absolute inset-0 h-full w-full pointer-events-none opacity-65"
         >
           {miniPaths.cashPath && (
-            <path d={miniPaths.cashPath} fill="none" stroke="#0F766E" strokeWidth="1.2" vectorEffect="non-scaling-stroke" />
+            <path d={miniPaths.cashPath} fill="none" stroke="#F59E0B" strokeWidth="1.2" vectorEffect="non-scaling-stroke" />
           )}
           {miniPaths.shopeePath && (
-            <path d={miniPaths.shopeePath} fill="none" stroke="#0284C7" strokeWidth="1.2" vectorEffect="non-scaling-stroke" />
+            <path d={miniPaths.shopeePath} fill="none" stroke="#38BDF8" strokeWidth="1.2" vectorEffect="non-scaling-stroke" />
           )}
         </svg>
 
@@ -172,7 +291,7 @@ const TimelineRangeSlider: React.FC<TimelineRangeSliderProps> = ({
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
           onPointerCancel={handlePointerUp}
-          className="absolute top-0 bottom-0 bg-teal-600/15 dark:bg-teal-400/20 border-x-2 border-teal-700 dark:border-teal-400 cursor-grab active:cursor-grabbing"
+          className="absolute top-0 bottom-0 bg-zinc-900/10 dark:bg-white/[0.08] border-x-2 border-zinc-900 dark:border-[#FAFAFA] cursor-grab active:cursor-grabbing"
         >
           <div
             role="slider"
@@ -186,7 +305,7 @@ const TimelineRangeSlider: React.FC<TimelineRangeSliderProps> = ({
             onPointerCancel={handlePointerUp}
             className="absolute -left-2 top-0 bottom-0 w-4 flex items-center justify-center cursor-ew-resize"
           >
-            <span className="h-4 w-1.5 rounded-sm bg-teal-700 dark:bg-teal-400" />
+            <span className="h-4 w-1.5 rounded-sm bg-zinc-900 dark:bg-[#FAFAFA]" />
           </div>
           <div
             role="slider"
@@ -200,12 +319,12 @@ const TimelineRangeSlider: React.FC<TimelineRangeSliderProps> = ({
             onPointerCancel={handlePointerUp}
             className="absolute -right-2 top-0 bottom-0 w-4 flex items-center justify-center cursor-ew-resize"
           >
-            <span className="h-4 w-1.5 rounded-sm bg-teal-700 dark:bg-teal-400" />
+            <span className="h-4 w-1.5 rounded-sm bg-zinc-900 dark:bg-[#FAFAFA]" />
           </div>
         </div>
       </div>
 
-      <div className="mt-1 flex items-center justify-between text-[11px] font-mono-num text-slate-500 dark:text-slate-400">
+      <div className="mt-1 flex items-center justify-between text-[11px] font-mono-num tabular-nums text-zinc-500 dark:text-zinc-400">
         <span>{data[0]?.label}</span>
         <span>
           Aktif: {data[safeStart]?.label} – {data[safeEnd]?.label}
@@ -245,8 +364,8 @@ const renderHorizontalCategoryBarLabel = (props: BarLabelRenderProps) => {
       dominantBaseline="central"
       className={
         fitsInside
-          ? 'fill-white font-mono text-[10px] font-bold pointer-events-none'
-          : 'fill-slate-800 dark:fill-slate-200 font-mono text-[10px] font-semibold pointer-events-none'
+          ? 'fill-[#FAFAFA] font-mono tabular-nums text-[10px] font-bold pointer-events-none'
+          : 'fill-zinc-900 dark:fill-[#FAFAFA] font-mono tabular-nums text-[10px] font-semibold pointer-events-none'
       }
     >
       {text}
@@ -274,8 +393,8 @@ const renderVerticalAccountBarLabel = (props: BarLabelRenderProps) => {
       dominantBaseline="central"
       className={
         fitsInside
-          ? 'fill-white font-mono text-[10px] font-bold pointer-events-none'
-          : 'fill-slate-800 dark:fill-slate-200 font-mono text-[10px] font-bold pointer-events-none'
+          ? 'fill-[#FAFAFA] font-mono tabular-nums text-[10px] font-bold pointer-events-none'
+          : 'fill-zinc-900 dark:fill-[#FAFAFA] font-mono tabular-nums text-[10px] font-bold pointer-events-none'
       }
     >
       {text}
@@ -301,10 +420,9 @@ const renderPaymentPieLabel = ({
   percent = 0,
 }: PieSliceLabelProps) => {
   const pctVal = percent * 100;
-  if (pctVal < 2) return null;
+  if (pctVal <= 0) return null;
 
   const RADIAN = Math.PI / 180;
-  // Tampilkan di dalam slice jika cukup besar (>= 12%), atau tepat di luar ring jika lebih tipis
   if (pctVal >= 12) {
     const r = innerRadius + (outerRadius - innerRadius) * 0.52;
     const x = cx + r * Math.cos(-midAngle * RADIAN);
@@ -315,7 +433,7 @@ const renderPaymentPieLabel = ({
         y={y}
         textAnchor="middle"
         dominantBaseline="central"
-        className="fill-white font-mono text-[10px] font-bold pointer-events-none"
+        className="fill-[#FAFAFA] font-mono tabular-nums text-[10px] font-bold pointer-events-none"
       >
         {formatPercentId(pctVal)}
       </text>
@@ -331,7 +449,7 @@ const renderPaymentPieLabel = ({
       y={y}
       textAnchor={x >= cx ? 'start' : 'end'}
       dominantBaseline="central"
-      className="fill-slate-700 dark:fill-slate-200 font-mono text-[10px] font-semibold pointer-events-none"
+      className="fill-zinc-800 dark:fill-[#FAFAFA] font-mono tabular-nums text-[10px] font-semibold pointer-events-none"
     >
       {formatPercentId(pctVal)}
     </text>
@@ -339,6 +457,15 @@ const renderPaymentPieLabel = ({
 };
 
 export const DashboardCharts: React.FC = () => {
+  const { theme } = useAuth();
+  const isDark = theme === 'dark';
+  const gridStroke = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(161,161,170,0.22)';
+  const axisStroke = isDark ? '#52525B' : '#A1A1AA';
+  const axisTickColor = isDark ? '#A1A1AA' : '#52525B';
+  const barHoverCursor = {
+    fill: isDark ? 'rgba(255, 255, 255, 0.04)' : 'rgba(0, 0, 0, 0.04)',
+  };
+
   const {
     trendData,
     moneyActivityData,
@@ -581,7 +708,7 @@ export const DashboardCharts: React.FC = () => {
                     onClick={() => zoomByFactor('in', 0.5)}
                     disabled={!canZoomIn}
                     aria-label="Zoom In grafik Tren Keuangan"
-                    className="inline-flex items-center gap-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-2.5 py-1.5 text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
+                    className="inline-flex items-center gap-1 rounded-lg border border-zinc-300 dark:border-white/[0.12] bg-white dark:bg-[#18181B] px-2.5 py-1.5 text-xs font-medium text-zinc-700 dark:text-[#FAFAFA] hover:bg-zinc-100 dark:hover:bg-white/[0.08] disabled:opacity-40 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
                   >
                     <ZoomIn className="h-3.5 w-3.5" />
                     <span>Zoom In (+)</span>
@@ -591,7 +718,7 @@ export const DashboardCharts: React.FC = () => {
                     onClick={() => zoomByFactor('out', 0.5)}
                     disabled={!canZoomOut}
                     aria-label="Zoom Out grafik Tren Keuangan"
-                    className="inline-flex items-center gap-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-2.5 py-1.5 text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
+                    className="inline-flex items-center gap-1 rounded-lg border border-zinc-300 dark:border-white/[0.12] bg-white dark:bg-[#18181B] px-2.5 py-1.5 text-xs font-medium text-zinc-700 dark:text-[#FAFAFA] hover:bg-zinc-100 dark:hover:bg-white/[0.08] disabled:opacity-40 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
                   >
                     <ZoomOut className="h-3.5 w-3.5" />
                     <span>Zoom Out (-)</span>
@@ -601,7 +728,7 @@ export const DashboardCharts: React.FC = () => {
                     onClick={handleResetZoom}
                     disabled={!isZoomed}
                     aria-label="Reset Zoom grafik Tren Keuangan"
-                    className="inline-flex items-center gap-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-2.5 py-1.5 text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
+                    className="inline-flex items-center gap-1 rounded-lg border border-zinc-300 dark:border-white/[0.12] bg-white dark:bg-[#18181B] px-2.5 py-1.5 text-xs font-medium text-zinc-700 dark:text-[#FAFAFA] hover:bg-zinc-100 dark:hover:bg-white/[0.08] disabled:opacity-40 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
                   >
                     <RotateCcw className="h-3.5 w-3.5" />
                     <span>Reset Zoom</span>
@@ -636,53 +763,61 @@ export const DashboardCharts: React.FC = () => {
                 >
                   <defs>
                     <linearGradient id="gradIncome" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#16A34A" stopOpacity={0.2} />
-                      <stop offset="95%" stopColor="#16A34A" stopOpacity={0} />
+                      <stop offset="5%" stopColor="#10B981" stopOpacity={0.22} />
+                      <stop offset="95%" stopColor="#10B981" stopOpacity={0} />
                     </linearGradient>
                     <linearGradient id="gradExpense" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#DC2626" stopOpacity={0.18} />
-                      <stop offset="95%" stopColor="#DC2626" stopOpacity={0} />
+                      <stop offset="5%" stopColor="#F43F5E" stopOpacity={0.2} />
+                      <stop offset="95%" stopColor="#F43F5E" stopOpacity={0} />
                     </linearGradient>
                     <linearGradient id="gradCash" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#0F766E" stopOpacity={0.22} />
-                      <stop offset="95%" stopColor="#0F766E" stopOpacity={0} />
+                      <stop offset="5%" stopColor="#F59E0B" stopOpacity={0.18} />
+                      <stop offset="95%" stopColor="#F59E0B" stopOpacity={0} />
                     </linearGradient>
                     <linearGradient id="gradShopee" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#0284C7" stopOpacity={0.2} />
-                      <stop offset="95%" stopColor="#0284C7" stopOpacity={0} />
+                      <stop offset="5%" stopColor="#38BDF8" stopOpacity={0.2} />
+                      <stop offset="95%" stopColor="#38BDF8" stopOpacity={0} />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.22)" />
+                  <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} />
                   <XAxis
                     dataKey="label"
                     interval={xAxisInterval}
                     minTickGap={24}
-                    tick={{ fontSize: 11 }}
-                    stroke="#64748B"
+                    tick={{ fontSize: 11, fill: axisTickColor }}
+                    stroke={axisStroke}
                   />
                   <YAxis
                     domain={trendScale.domain}
                     ticks={trendScale.ticks}
                     tickFormatter={(v) => formatMoney(v)}
-                    tick={{ fontSize: 11 }}
-                    stroke="#64748B"
+                    tick={{ fontSize: 11, fill: axisTickColor }}
+                    stroke={axisStroke}
                     width={92}
                   />
                   <Tooltip
-                    formatter={(val: unknown, name: unknown) => [formatMoney(Number(val)), String(name)]}
-                    labelFormatter={(label) => `Tanggal ${label}`}
-                    contentStyle={{
-                      borderRadius: '12px',
-                      border: '1px solid rgba(148,163,184,0.25)',
-                      fontSize: '12px',
-                    }}
+                    cursor={{ stroke: isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.2)', strokeDasharray: '3 3' }}
+                    content={
+                      <CustomChartTooltip
+                        isDark={isDark}
+                        labelPrefix="Tanggal "
+                        resolveValueColor={(item) => {
+                          const key = String(item.dataKey || '');
+                          if (key === 'pemasukan') return isDark ? '#34D399' : '#059669';
+                          if (key === 'pengeluaran') return isDark ? '#FB7185' : '#E11D48';
+                          if (key === 'uangTunai') return isDark ? '#FBBF24' : '#D97706';
+                          if (key === 'shopeePay') return isDark ? '#38BDF8' : '#0284C7';
+                          return isDark ? '#FAFAFA' : '#18181B';
+                        }}
+                      />
+                    }
                   />
-                  <Legend wrapperStyle={{ fontSize: '12px', paddingTop: '6px' }} />
+                  <Legend wrapperStyle={{ fontSize: '12px', paddingTop: '6px', color: axisTickColor }} />
                   <Area
                     type="monotone"
                     dataKey="pemasukan"
                     name="Pemasukan"
-                    stroke="#16A34A"
+                    stroke="#10B981"
                     strokeWidth={2}
                     fill="url(#gradIncome)"
                     isAnimationActive={false}
@@ -691,7 +826,7 @@ export const DashboardCharts: React.FC = () => {
                     type="monotone"
                     dataKey="pengeluaran"
                     name="Pengeluaran"
-                    stroke="#DC2626"
+                    stroke="#F43F5E"
                     strokeWidth={2}
                     fill="url(#gradExpense)"
                     isAnimationActive={false}
@@ -700,7 +835,7 @@ export const DashboardCharts: React.FC = () => {
                     type="monotone"
                     dataKey="uangTunai"
                     name="Uang Tunai"
-                    stroke="#0F766E"
+                    stroke="#F59E0B"
                     strokeWidth={2.2}
                     fill="url(#gradCash)"
                     isAnimationActive={false}
@@ -709,7 +844,7 @@ export const DashboardCharts: React.FC = () => {
                     type="monotone"
                     dataKey="shopeePay"
                     name="ShopeePay"
-                    stroke="#0284C7"
+                    stroke="#38BDF8"
                     strokeWidth={2.2}
                     fill="url(#gradShopee)"
                     isAnimationActive={false}
@@ -719,8 +854,8 @@ export const DashboardCharts: React.FC = () => {
                       x1={dragX1}
                       x2={dragX2}
                       strokeOpacity={0.35}
-                      fill="#0F766E"
-                      fillOpacity={0.16}
+                      fill="#FAFAFA"
+                      fillOpacity={0.12}
                     />
                   )}
                 </AreaChart>
@@ -735,7 +870,7 @@ export const DashboardCharts: React.FC = () => {
                   onChangeRange={(s, e) => setZoomRange(clampRange(s, e))}
                   onReset={handleResetZoom}
                 />
-                <p className="mt-1.5 text-[11px] text-slate-500 dark:text-slate-400">
+                <p className="mt-1.5 text-[11px] text-zinc-500 dark:text-zinc-400">
                   Gunakan tombol kontrol di atas, scroll mouse, seret area grafik, atau geser slider rentang tanggal di bawah grafik untuk memperbesar detail.
                 </p>
               </>
@@ -751,32 +886,39 @@ export const DashboardCharts: React.FC = () => {
           <div className="h-80 w-full">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={moneyActivityData} margin={{ top: 10, right: 12, left: 6, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.22)" />
-                <XAxis dataKey="name" tick={{ fontSize: 12 }} stroke="#64748B" />
+                <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} />
+                <XAxis dataKey="name" tick={{ fontSize: 12, fill: axisTickColor }} stroke={axisStroke} />
                 <YAxis
                   domain={activityScale.domain}
                   ticks={activityScale.ticks}
                   tickFormatter={(v) => formatMoney(v)}
-                  tick={{ fontSize: 11 }}
-                  stroke="#64748B"
+                  tick={{ fontSize: 11, fill: axisTickColor }}
+                  stroke={axisStroke}
                   width={92}
                 />
                 <Tooltip
-                  formatter={(val: unknown) => [formatMoney(Number(val)), 'Nominal']}
-                  contentStyle={{
-                    borderRadius: '12px',
-                    border: '1px solid rgba(148,163,184,0.25)',
-                    fontSize: '12px',
-                  }}
+                  cursor={barHoverCursor}
+                  content={
+                    <CustomChartTooltip
+                      isDark={isDark}
+                      valueLabelOverride="Nominal"
+                      resolveValueColor={(item) => {
+                        const nm = String(item.payload?.name || '');
+                        if (nm === 'Masuk') return isDark ? '#34D399' : '#059669';
+                        if (nm === 'Keluar') return isDark ? '#FB7185' : '#E11D48';
+                        return isDark ? '#38BDF8' : '#0284C7';
+                      }}
+                    />
+                  }
                 />
                 <Bar dataKey="nominal" radius={[8, 8, 0, 0]}>
                   {moneyActivityData.map((entry, idx) => {
                     const color =
                       entry.name === 'Masuk'
-                        ? '#16A34A'
+                        ? '#10B981'
                         : entry.name === 'Keluar'
-                          ? '#DC2626'
-                          : '#0F766E';
+                          ? '#F43F5E'
+                          : '#38BDF8';
                     return <Cell key={idx} fill={color} />;
                   })}
                 </Bar>
@@ -800,29 +942,31 @@ export const DashboardCharts: React.FC = () => {
                 layout="vertical"
                 margin={{ top: 4, right: 86, left: 10, bottom: 4 }}
               >
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.2)" />
+                <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} />
                 <XAxis
                   type="number"
                   domain={categoryScale.domain}
                   ticks={categoryScale.ticks}
                   tickFormatter={(v) => formatMoney(v)}
-                  tick={{ fontSize: 10 }}
-                  stroke="#64748B"
+                  tick={{ fontSize: 10, fill: axisTickColor }}
+                  stroke={axisStroke}
                 />
                 <YAxis
                   type="category"
                   dataKey="kategori"
                   width={126}
-                  tick={{ fontSize: 11 }}
-                  stroke="#64748B"
+                  tick={{ fontSize: 11, fill: isDark ? '#E4E4E7' : '#3F3F46' }}
+                  stroke={axisStroke}
                 />
                 <Tooltip
-                  formatter={(val: unknown) => [formatMoney(Number(val)), 'Pengeluaran']}
-                  contentStyle={{
-                    borderRadius: '12px',
-                    border: '1px solid rgba(148,163,184,0.25)',
-                    fontSize: '12px',
-                  }}
+                  cursor={barHoverCursor}
+                  content={
+                    <CustomChartTooltip
+                      isDark={isDark}
+                      valueLabelOverride="Pengeluaran"
+                      resolveValueColor={() => (isDark ? '#FB7185' : '#E11D48')}
+                    />
+                  }
                 />
                 <Bar dataKey="total" fill="#0F766E" radius={[0, 6, 6, 0]}>
                   <LabelList dataKey="total" content={renderHorizontalCategoryBarLabel} />
@@ -839,16 +983,17 @@ export const DashboardCharts: React.FC = () => {
         >
           <div className="h-64 w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
+              <PieChart margin={{ top: 12, right: 24, bottom: 12, left: 24 }}>
                 <Pie
                   data={paymentMethodWithPct}
                   dataKey="value"
                   nameKey="name"
                   cx="50%"
                   cy="50%"
-                  innerRadius={48}
-                  outerRadius={76}
+                  innerRadius={44}
+                  outerRadius={70}
                   paddingAngle={3}
+                  stroke="none"
                   labelLine={false}
                   label={renderPaymentPieLabel}
                 >
@@ -857,31 +1002,32 @@ export const DashboardCharts: React.FC = () => {
                   ))}
                 </Pie>
                 <Tooltip
-                  formatter={(val: unknown, name: unknown, item: { payload?: { percentage?: number } }) => [
-                    `${formatMoney(Number(val))} (${formatPercentId(item?.payload?.percentage ?? 0)})`,
-                    String(name),
-                  ]}
-                  contentStyle={{
-                    borderRadius: '12px',
-                    border: '1px solid rgba(148,163,184,0.25)',
-                    fontSize: '12px',
-                  }}
+                  content={
+                    <CustomChartTooltip
+                      isDark={isDark}
+                      showPercentage
+                      percentDecimals={1}
+                    />
+                  }
                 />
                 <Legend
-                  wrapperStyle={{ fontSize: '12px' }}
+                  wrapperStyle={{ fontSize: '12px', color: axisTickColor }}
                   formatter={(value) => {
                     const match = paymentMethodWithPct.find((item) => item.name === String(value));
-                    return match ? `${value} (${formatPercentId(match.percentage)})` : String(value);
+                    const labelText = match
+                      ? `${value} (${formatPercentId(match.percentage)})`
+                      : String(value);
+                    return <span style={{ color: isDark ? '#D4D4D8' : '#3F3F46' }}>{labelText}</span>;
                   }}
                 />
               </PieChart>
             </ResponsiveContainer>
           </div>
           {paymentMethodWithPct.length > 0 && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 pt-2 border-t border-slate-100 dark:border-slate-800 text-xs">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 pt-2 border-t border-zinc-100 dark:border-white/[0.08] text-xs">
               {paymentMethodWithPct.map((row, idx) => (
                 <div key={row.name} className="flex items-center justify-between gap-2">
-                  <span className="inline-flex items-center gap-1.5 text-slate-600 dark:text-slate-300 truncate">
+                  <span className="inline-flex items-center gap-1.5 text-zinc-600 dark:text-zinc-400 truncate">
                     <span
                       className="h-2.5 w-2.5 rounded-full shrink-0"
                       style={{ backgroundColor: PAYMENT_COLORS[idx % PAYMENT_COLORS.length] }}
@@ -890,7 +1036,7 @@ export const DashboardCharts: React.FC = () => {
                       {row.name} ({formatPercentId(row.percentage)})
                     </span>
                   </span>
-                  <span className="font-mono-num font-semibold text-slate-900 dark:text-white shrink-0">
+                  <span className="font-mono-num tabular-nums font-semibold text-zinc-900 dark:text-[#FAFAFA] shrink-0">
                     {formatMoney(row.value)}
                   </span>
                 </div>
@@ -919,38 +1065,62 @@ export const DashboardCharts: React.FC = () => {
                   innerRadius={52}
                   outerRadius={84}
                   paddingAngle={4}
+                  stroke="none"
                 >
-                  {needsVsWantsData.map((_, idx) => (
-                    <Cell key={idx} fill={NEEDS_WANTS_COLORS[idx % NEEDS_WANTS_COLORS.length]} />
+                  {needsVsWantsData.map((entry, idx) => (
+                    <Cell key={idx} fill={getNeedsWantsColor(entry.name)} />
                   ))}
                 </Pie>
                 <Tooltip
-                  formatter={(val: unknown, name: unknown, item: { payload?: { percentage?: number } }) => [
-                    `${formatMoney(Number(val))} (${item?.payload?.percentage ?? 0}%)`,
-                    String(name),
-                  ]}
-                  contentStyle={{
-                    borderRadius: '12px',
-                    border: '1px solid rgba(148,163,184,0.25)',
-                    fontSize: '12px',
-                  }}
+                  content={
+                    <CustomChartTooltip
+                      isDark={isDark}
+                      showPercentage
+                      percentDecimals={0}
+                      resolveValueColor={(item) => {
+                        const nm = String(item.name || item.payload?.name || '').toLowerCase();
+                        if (nm.includes('kebutuhan')) return isDark ? '#34D399' : '#059669';
+                        if (nm.includes('keinginan')) return isDark ? '#FBBF24' : '#D97706';
+                        return isDark ? '#FAFAFA' : '#18181B';
+                      }}
+                    />
+                  }
                 />
-                <Legend wrapperStyle={{ fontSize: '12px' }} />
+                <Legend
+                  wrapperStyle={{ fontSize: '12px', color: axisTickColor }}
+                  formatter={(value) => (
+                    <span style={{ color: isDark ? '#D4D4D8' : '#3F3F46' }}>{String(value)}</span>
+                  )}
+                />
               </PieChart>
             </ResponsiveContainer>
           </div>
           {needsVsWantsData.length > 0 && (
-            <div className="grid grid-cols-2 gap-3 pt-2 border-t border-slate-100 dark:border-slate-800 text-xs">
-              {needsVsWantsData.map((row) => (
-                <div key={row.name} className="flex items-center justify-between">
-                  <span className="text-slate-500 dark:text-slate-400">
-                    {row.name} ({row.percentage}%)
-                  </span>
-                  <span className="font-mono-num font-semibold text-slate-900 dark:text-white">
-                    {formatMoney(row.value)}
-                  </span>
-                </div>
-              ))}
+            <div className="grid grid-cols-2 gap-3 pt-2 border-t border-zinc-100 dark:border-white/[0.08] text-xs">
+              {needsVsWantsData.map((row) => {
+                const lower = row.name.toLowerCase();
+                const valueClass = lower.includes('kebutuhan')
+                  ? 'text-emerald-600 dark:text-emerald-400'
+                  : lower.includes('keinginan')
+                    ? 'text-amber-600 dark:text-amber-400'
+                    : 'text-zinc-900 dark:text-[#FAFAFA]';
+                return (
+                  <div key={row.name} className="flex items-center justify-between gap-2">
+                    <span className="inline-flex items-center gap-1.5 text-zinc-500 dark:text-zinc-400 truncate">
+                      <span
+                        className="h-2.5 w-2.5 rounded-full shrink-0"
+                        style={{ backgroundColor: getNeedsWantsColor(row.name) }}
+                      />
+                      <span className="truncate">
+                        {row.name} ({row.percentage}%)
+                      </span>
+                    </span>
+                    <span className={`font-mono-num tabular-nums font-semibold shrink-0 ${valueClass}`}>
+                      {formatMoney(row.value)}
+                    </span>
+                  </div>
+                );
+              })}
             </div>
           )}
         </ChartCard>
@@ -962,52 +1132,67 @@ export const DashboardCharts: React.FC = () => {
           <div className="h-64 w-full">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={cashDigitalChartData} margin={{ top: 24, right: 10, left: 6, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.2)" />
-                <XAxis dataKey="name" tick={{ fontSize: 10 }} stroke="#64748B" />
+                <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} />
+                <XAxis dataKey="name" tick={{ fontSize: 10, fill: axisTickColor }} stroke={axisStroke} />
                 <YAxis
                   domain={accountScale.domain}
                   ticks={accountScale.ticks}
                   tickFormatter={(v) => formatMoney(v)}
-                  tick={{ fontSize: 11 }}
-                  stroke="#64748B"
+                  tick={{ fontSize: 11, fill: axisTickColor }}
+                  stroke={axisStroke}
                   width={92}
                 />
                 <Tooltip
-                  formatter={(val: unknown) => [formatMoney(Number(val)), 'Saldo']}
-                  contentStyle={{
-                    borderRadius: '12px',
-                    border: '1px solid rgba(148,163,184,0.25)',
-                    fontSize: '12px',
-                  }}
+                  cursor={barHoverCursor}
+                  content={
+                    <CustomChartTooltip
+                      isDark={isDark}
+                      valueLabelOverride="Saldo"
+                      resolveValueColor={(item) => {
+                        const nm = String(item.payload?.name || '').toLowerCase();
+                        if (nm.includes('tabungan') || nm.includes('seabank')) {
+                          return isDark ? '#FBBF24' : '#D97706';
+                        }
+                        if (nm.includes('total')) return isDark ? '#A78BFA' : '#7C3AED';
+                        if (nm.includes('likuid') || nm.includes('digital')) {
+                          return isDark ? '#38BDF8' : '#0284C7';
+                        }
+                        return isDark ? '#34D399' : '#059669';
+                      }}
+                    />
+                  }
                 />
-                <Bar dataKey="saldo" fill="#0F766E" radius={[6, 6, 0, 0]}>
+                <Bar dataKey="saldo" radius={[6, 6, 0, 0]}>
+                  {cashDigitalChartData.map((entry, idx) => (
+                    <Cell key={idx} fill={getAccountBarColor(entry.name)} />
+                  ))}
                   <LabelList dataKey="saldo" content={renderVerticalAccountBarLabel} />
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2 border-t border-slate-100 dark:border-slate-800 text-xs">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2 border-t border-zinc-100 dark:border-white/[0.08] text-xs">
             <div>
-              <span className="text-slate-500 dark:text-slate-400 block">Uang Tunai</span>
-              <span className="font-mono-num font-semibold text-slate-900 dark:text-white">
+              <span className="text-zinc-500 dark:text-zinc-400 block">Uang Tunai</span>
+              <span className="font-mono-num tabular-nums font-semibold text-teal-600 dark:text-teal-400">
                 {formatMoney(cashBalance)}
               </span>
             </div>
             <div>
-              <span className="text-slate-500 dark:text-slate-400 block">Saldo Digital</span>
-              <span className="font-mono-num font-semibold text-teal-700 dark:text-teal-400">
+              <span className="text-zinc-500 dark:text-zinc-400 block">Saldo Digital</span>
+              <span className="font-mono-num tabular-nums font-semibold text-sky-600 dark:text-sky-400">
                 {formatMoney(digitalBalance)}
               </span>
             </div>
             <div>
-              <span className="text-slate-500 dark:text-slate-400 block">Sisa Saldo</span>
-              <span className="font-mono-num font-semibold text-slate-900 dark:text-white">
+              <span className="text-zinc-500 dark:text-zinc-400 block">Sisa Saldo</span>
+              <span className="font-mono-num tabular-nums font-semibold text-sky-600 dark:text-sky-400">
                 {formatMoney(liquidBalance)}
               </span>
             </div>
             <div>
-              <span className="text-slate-500 dark:text-slate-400 block">Total Tabungan</span>
-              <span className="font-mono-num font-semibold text-emerald-700 dark:text-emerald-400">
+              <span className="text-zinc-500 dark:text-zinc-400 block">Total Tabungan</span>
+              <span className="font-mono-num tabular-nums font-semibold text-amber-600 dark:text-amber-400">
                 {formatMoney(seaBankBalance)}
               </span>
             </div>
@@ -1017,4 +1202,3 @@ export const DashboardCharts: React.FC = () => {
     </div>
   );
 };
-

@@ -31,7 +31,7 @@ const ProtectedShell: React.FC<{
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950 text-sm text-slate-600 dark:text-slate-400">
+      <div className="min-h-screen flex items-center justify-center bg-zinc-50 dark:bg-[#09090B] text-sm text-zinc-600 dark:text-zinc-400">
         Memuat aplikasi...
       </div>
     );

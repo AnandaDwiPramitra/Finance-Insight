@@ -16,7 +16,6 @@ import {
   parseBulanToPeriodKey,
   parseCurrencyString,
 } from '../utils/formatMoney';
-
 import { validateFinanceDataset } from '../utils/validation';
 
 const HEADER_ALIASES: Record<string, string> = {
@@ -24,37 +23,62 @@ const HEADER_ALIASES: Record<string, string> = {
   no_transaksi: 'id',
   transaction_id: 'id',
   kode_transaksi: 'id',
+  no: 'id',
 
   transfer_id: 'transferId',
   transferid: 'transferId',
   id_transfer: 'transferId',
   kode_transfer: 'transferId',
+  ref: 'transferId',
+  no_referensi: 'transferId',
+  no_ref: 'transferId',
 
   tanggal: 'tanggal',
   date: 'tanggal',
   tgl: 'tanggal',
   waktu: 'tanggal',
+  time: 'tanggal',
+  datetime: 'tanggal',
+  hari_tanggal: 'tanggal',
+  tgl_transaksi: 'tanggal',
 
   tipe: 'tipe',
   type: 'tipe',
+  tipe_transaksi: 'tipe',
+  tipetransaksi: 'tipe',
   jenis_transaksi: 'tipe',
+  status_transaksi: 'tipe',
+  direction: 'tipe',
+  arus_kas: 'tipe',
 
   kategori: 'kategori',
   category: 'kategori',
   pos: 'kategori',
+  pos_anggaran: 'kategori',
+  kelompok: 'kategori',
+  subkategori: 'kategori',
+  jenis_belanja: 'kategori',
 
   metode: 'metode',
   method: 'metode',
   metode_pembayaran: 'metode',
   metodepembayaran: 'metode',
+  metode_bayar: 'metode',
+  metodebayar: 'metode',
   payment_method: 'metode',
   pembayaran: 'metode',
+  cara_bayar: 'metode',
+  channel: 'metode',
+  via: 'metode',
 
   akun: 'akun',
   account: 'akun',
   dompet: 'akun',
   rekening: 'akun',
   sumber_dana: 'akun',
+  wallet: 'akun',
+  bank: 'akun',
+  rekening_sumber: 'akun',
 
   pemasukan: 'masuk',
   masuk: 'masuk',
@@ -62,12 +86,32 @@ const HEADER_ALIASES: Record<string, string> = {
   kredit: 'masuk',
   uang_masuk: 'masuk',
   debit_masuk: 'masuk',
+  cr: 'masuk',
+  inflow: 'masuk',
 
   pengeluaran: 'keluar',
   keluar: 'keluar',
   expense: 'keluar',
   debit: 'keluar',
   uang_keluar: 'keluar',
+  db: 'keluar',
+  outflow: 'keluar',
+  biaya_keluar: 'keluar',
+
+  nominal: 'nominal',
+  nominal_rupiah: 'nominal',
+  nominalrupiah: 'nominal',
+  nominal_rp: 'nominal',
+  nominalrp: 'nominal',
+  jumlah: 'nominal',
+  amount: 'nominal',
+  total: 'nominal',
+  biaya: 'nominal',
+  harga: 'nominal',
+  nilai: 'nominal',
+  rupiah: 'nominal',
+  net: 'nominal',
+  val: 'nominal',
 
   keterangan: 'keterangan',
   description: 'keterangan',
@@ -75,16 +119,23 @@ const HEADER_ALIASES: Record<string, string> = {
   note: 'keterangan',
   uraian: 'keterangan',
   deskripsi: 'keterangan',
+  rincian: 'keterangan',
+  transaksi: 'keterangan',
+  detail: 'keterangan',
+  memo: 'keterangan',
 
   jenispengeluaran: 'jenisPengeluaran',
   jenis_pengeluaran: 'jenisPengeluaran',
   jenis: 'jenisPengeluaran',
   nature: 'jenisPengeluaran',
   tipe_pengeluaran: 'jenisPengeluaran',
+  sifat_pengeluaran: 'jenisPengeluaran',
+  kebutuhan_keinginan: 'jenisPengeluaran',
 
   saldo: 'saldo',
   balance: 'saldo',
   sisa_saldo: 'saldo',
+  sisa: 'saldo',
 
   bulan: 'bulan',
   month: 'bulan',
@@ -208,8 +259,10 @@ function isTotalRow(values: unknown[]): boolean {
       trimmed === 'total' ||
       trimmed === 'grand total' ||
       trimmed === 'jumlah total' ||
+      trimmed === 'subtotal' ||
       trimmed.startsWith('total ') ||
-      trimmed.startsWith('total:')
+      trimmed.startsWith('total:') ||
+      trimmed.startsWith('grand total')
     );
   });
 }
@@ -223,12 +276,15 @@ function findHeaderRowIndex(matrix: unknown[][]): number {
     const hasFinancialCol =
       normalized.includes('masuk') ||
       normalized.includes('keluar') ||
-      normalized.includes('keterangan');
+      normalized.includes('nominal') ||
+      normalized.includes('keterangan') ||
+      normalized.includes('kategori') ||
+      normalized.includes('tipe');
     if (hasTanggal && hasFinancialCol) {
       return i;
     }
   }
-  return 0;
+  return -1;
 }
 
 function parseSemicolonCsvFallback(text: string): unknown[][] {
@@ -282,83 +338,280 @@ function buildRowSignature(row: {
   ].join('|');
 }
 
-function normalizeExpenseNatureFromImport(params: {
-  rawJenis: string;
-  kategori: string;
-  tipe: TransactionType;
-}): ExpenseNature {
-  const { rawJenis, kategori, tipe } = params;
-  const katLower = kategori.toLowerCase().trim();
-  const jenisLower = rawJenis.toLowerCase().trim();
+/**
+ * Normalisasi variasi nama kategori menjadi standar rapi aplikasi.
+ */
+export function normalizeImportedCategory(
+  rawCat: string,
+  rawKet: string,
+  tipe: TransactionType
+): string {
+  const catTrim = (rawCat || '').trim();
+  const lowerCat = catTrim.toLowerCase();
+  const lowerKet = (rawKet || '').toLowerCase();
 
-  if (katLower === 'transfer' || jenisLower === 'transfer') {
-    return 'Transfer';
+  // 1. Pemetaan kategori langsung
+  if (
+    /^(bensin|uang\s*bensin|bbm|pertalite|pertamax|solar|parkir|ongkir|transport|transportasi|ojol|grab|gojek|toll|tol)/i.test(
+      lowerCat
+    )
+  ) {
+    return 'Transportasi';
   }
-  if (katLower === 'tabungan' || jenisLower === 'tabungan') {
+  if (
+    /^(makanan|makan|minuman|minum|kuliner|konsumsi|food|beverage|makanan\s*(dan|&)\s*minuman)/i.test(
+      lowerCat
+    )
+  ) {
+    return 'Makanan dan Minuman';
+  }
+  if (
+    /^(internet|kuota|kuota\s*internet|paket\s*data|pulsa|wifi|indihome|biznet|pln|listrik|pdam|air|tagihan|utilitas|langganan|subscription)/i.test(
+      lowerCat
+    )
+  ) {
+    return 'Tagihan & Internet';
+  }
+  if (
+    /^(skincare|skin\s*care|perawatan|sabun|sampo|odol|kebersihan|laundry|kebutuhan\s*pribadi|personal\s*care)/i.test(
+      lowerCat
+    )
+  ) {
+    return 'Kebutuhan Pribadi';
+  }
+  if (
+    /^(hiburan|entertainment|bioskop|nonton|game|gaming|topup\s*game|steam|wisata|rekreasi|hobi)/i.test(
+      lowerCat
+    )
+  ) {
+    return 'Hiburan';
+  }
+  if (
+    /^(belanja|shopping|baju|pakaian|sepatu|tas|aksesoris|elektronik)/i.test(lowerCat)
+  ) {
+    return 'Belanja';
+  }
+  if (
+    /^(tabungan|saving|investasi|reksadana|deposito|seabank|tabung)/i.test(lowerCat)
+  ) {
     return 'Tabungan';
   }
-  if (tipe === 'Pemasukan') {
+  if (/^(transfer|mutasi|pindah\s*dana|top\s*up)/i.test(lowerCat)) {
+    return 'Transfer';
+  }
+  if (
+    /^(gaji|salary|pemasukan|income|honor|bonus|freelance|omset|uang\s*saku)/i.test(
+      lowerCat
+    )
+  ) {
     return 'Pemasukan';
   }
+
+  // 2. Jika kategori kosong atau "Lainnya", infer dari keterangan
+  if (!catTrim || lowerCat === 'lainnya' || lowerCat === 'umum' || lowerCat === '-') {
+    if (
+      /bensin|bbm|pertalite|pertamax|parkir|toll|tol|ojol|grab|gojek/i.test(lowerKet)
+    ) {
+      return 'Transportasi';
+    }
+    if (
+      /makan|sarapan|siang|malam|nasi|warteg|resto|bakso|mie|kopi|kafe|cafe|jajan|snack/i.test(
+        lowerKet
+      )
+    ) {
+      return 'Makanan dan Minuman';
+    }
+    if (
+      /internet|kuota|pulsa|wifi|indihome|listrik|pln|pdam|tagihan/i.test(lowerKet)
+    ) {
+      return 'Tagihan & Internet';
+    }
+    if (/skincare|sabun|sampo|odol|laundry/i.test(lowerKet)) {
+      return 'Kebutuhan Pribadi';
+    }
+    if (/game|steam|bioskop|netflix|spotify|hiburan/i.test(lowerKet)) {
+      return 'Hiburan';
+    }
+    if (/tabungan|seabank|nabung/i.test(lowerKet)) {
+      return 'Tabungan';
+    }
+    if (/top up|topup|transfer/i.test(lowerKet)) {
+      return 'Transfer';
+    }
+    if (/gaji|salary|honor|uang saku|pemasukan/i.test(lowerKet)) {
+      return 'Pemasukan';
+    }
+    return tipe === 'Pemasukan' ? 'Pemasukan' : 'Lainnya';
+  }
+
+  return catTrim;
+}
+
+/**
+ * Normalisasi dan inferensi pintar sifat pengeluaran (Kebutuhan vs Keinginan vs Tabungan/Transfer).
+ */
+export function normalizeExpenseNatureFromImport(params: {
+  rawJenis: string;
+  kategori: string;
+  keterangan: string;
+  tipe: TransactionType;
+}): ExpenseNature {
+  const { rawJenis, kategori, keterangan, tipe } = params;
+  const katLower = kategori.toLowerCase().trim();
+  const jenisLower = (rawJenis || '').toLowerCase().trim();
+  const ketLower = (keterangan || '').toLowerCase().trim();
+
+  if (katLower === 'transfer' || jenisLower === 'transfer') return 'Transfer';
+  if (katLower === 'tabungan' || jenisLower === 'tabungan') return 'Tabungan';
+  if (tipe === 'Pemasukan') return 'Pemasukan';
+
   if (jenisLower === 'kebutuhan') return 'Kebutuhan';
   if (jenisLower === 'keinginan') return 'Keinginan';
   if (jenisLower === 'pemasukan') return 'Pemasukan';
   if (jenisLower === 'perlu ditinjau' || jenisLower === 'tidak jelas') return 'Perlu Ditinjau';
 
-  // Jangan menebak atau memaksa menjadi Kebutuhan/Keinginan tanpa dasar dari kolom Jenis
-  return 'Perlu Ditinjau';
+  // Smart inference bila kolom Jenis tidak diisi:
+  // Kategori diskresioner (Keinginan):
+  if (
+    katLower === 'hiburan' ||
+    katLower === 'belanja' ||
+    /jajan|kopi|cafe|kafe|starbucks|boba|nongkrong|game|steam|topup game|snack|chatime|mixue/i.test(
+      ketLower
+    ) ||
+    /jajan|kopi|nongkrong|game/i.test(katLower)
+  ) {
+    return 'Keinginan';
+  }
+
+  // Kategori esensial (Kebutuhan):
+  if (
+    katLower === 'transportasi' ||
+    katLower === 'tagihan & internet' ||
+    katLower === 'kebutuhan pribadi' ||
+    katLower === 'kesehatan' ||
+    katLower === 'pendidikan' ||
+    /bensin|pertalite|pertamax|parkir|kuota|internet|pulsa|listrik|air|pdam|kos|sewa|skincare|sabun/i.test(
+      ketLower
+    )
+  ) {
+    return 'Kebutuhan';
+  }
+
+  // Makanan pokok adalah Kebutuhan
+  if (katLower === 'makanan dan minuman') {
+    return 'Kebutuhan';
+  }
+
+  return 'Kebutuhan';
 }
 
 /**
- * Normalisasi nama akun tepat ke: Cash, ShopeePay, SeaBank (atau nama akun valid dari kolom Akun).
- * Tidak pernah membuat akun bernama QRIS atau Tunai.
+ * Universal payment method & account detection for Indonesian banks, e-wallets, and cash.
  */
-function normalizeImportedAccount(params: {
-  akunRaw: string;
+export interface DetectedPaymentAccount {
+  akun: string;
   metode: string;
+}
+
+export function detectPaymentAndAccount(params: {
+  akunRaw: string;
+  metodeRaw: string;
   keterangan: string;
   kategori: string;
   masuk: number;
   keluar: number;
-}): string {
-  const { akunRaw, metode, keterangan, kategori, masuk, keluar } = params;
-  const ket = keterangan.toLowerCase();
-  const kat = kategori.toLowerCase().trim();
-  const met = metode.toLowerCase().trim();
-  const akunLower = akunRaw.toLowerCase().trim();
+}): DetectedPaymentAccount {
+  const { akunRaw, metodeRaw, keterangan, kategori, masuk, keluar } = params;
+  const ket = (keterangan || '').toLowerCase();
+  const kat = (kategori || '').toLowerCase().trim();
+  const met = (metodeRaw || '').toLowerCase().trim();
+  const akun = (akunRaw || '').toLowerCase().trim();
 
-  // 1. Jika kolom Akun di XLSX sudah valid (selain QRIS/Tunai yang merupakan metode), hormati & normalkan kapitalisasinya
-  if (akunLower === 'cash') return 'Cash';
-  if (akunLower === 'shopeepay' || akunLower === 'shopee pay') return 'ShopeePay';
-  if (akunLower === 'seabank' || akunLower === 'sea bank' || akunLower === 'seabank bank') {
-    return 'SeaBank';
+  const findBrand = (text: string): { akun: string; type: Account['type'] } | null => {
+    if (/\b(seabank|sea bank)\b/.test(text)) return { akun: 'SeaBank', type: 'Bank' };
+    if (/\b(shopeepay|shopee pay|spay)\b/.test(text)) return { akun: 'ShopeePay', type: 'E-Wallet' };
+    if (/\b(dana)\b/.test(text)) return { akun: 'DANA', type: 'E-Wallet' };
+    if (/\b(gopay|go pay|gojek)\b/.test(text)) return { akun: 'GoPay', type: 'E-Wallet' };
+    if (/\b(ovo)\b/.test(text)) return { akun: 'OVO', type: 'E-Wallet' };
+    if (/\b(linkaja|link aja)\b/.test(text)) return { akun: 'LinkAja', type: 'E-Wallet' };
+    if (/\b(mybca|bca mobile|klikbca|bca)\b/.test(text)) return { akun: 'BCA', type: 'Bank' };
+    if (/\b(mandiri|livin|livin by mandiri)\b/.test(text)) return { akun: 'Mandiri', type: 'Bank' };
+    if (/\b(bri|brimo)\b/.test(text)) return { akun: 'BRI', type: 'Bank' };
+    if (/\b(bni|wondr)\b/.test(text)) return { akun: 'BNI', type: 'Bank' };
+    if (/\b(jago|bank jago)\b/.test(text)) return { akun: 'Bank Jago', type: 'Bank' };
+    if (/\b(blu|blu by bca digital)\b/.test(text)) return { akun: 'blu', type: 'Bank' };
+    if (/\b(neobank|neo bank|bnc)\b/.test(text)) return { akun: 'NeoBank', type: 'Bank' };
+    if (/\b(allo|allo bank)\b/.test(text)) return { akun: 'Allo Bank', type: 'Bank' };
+    if (/\b(cimb|cimb niaga|octo)\b/.test(text)) return { akun: 'CIMB Niaga', type: 'Bank' };
+    if (/\b(permata|permatame)\b/.test(text)) return { akun: 'Permata', type: 'Bank' };
+    if (/\b(bsi|bank syariah indonesia)\b/.test(text)) return { akun: 'BSI', type: 'Bank' };
+    if (/\b(jenius|btpn)\b/.test(text)) return { akun: 'Jenius', type: 'Bank' };
+    if (/\b(cash|tunai|uang tunai)\b/.test(text)) return { akun: 'Cash', type: 'Cash' };
+    return null;
+  };
+
+  // 1. Cek dari kolom akun
+  let detected = findBrand(akun);
+
+  // 2. Cek dari kolom metode
+  if (!detected) {
+    detected = findBrand(met);
   }
 
-  // 2. Jika Akun kosong atau salah isi dengan nama metode ("Tunai" / "QRIS"), petakan sesuai aturan:
-  if (met === 'qris' || akunLower === 'qris' || met === 'shopeepay' || met === 'shopee pay') {
-    return 'ShopeePay';
+  // 3. Cek dari kolom keterangan
+  if (!detected) {
+    detected = findBrand(ket);
   }
 
+  const isQris = met.includes('qris') || akun === 'qris' || ket.includes('qris');
+  let finalMetode = metodeRaw.trim() || (isQris ? 'QRIS' : 'Tunai');
+  if (isQris && !finalMetode) finalMetode = 'QRIS';
+
+  // Kasus khusus Tabungan SeaBank & Top Up ShopeePay:
   if (
     kat === 'tabungan' ||
     ket.includes('seabank') ||
-    ket.includes('sea bank')
+    ket.includes('sea bank') ||
+    ket.includes('setor tabungan')
   ) {
-    if (keluar > 0 && masuk === 0) return 'Cash';
-    return 'SeaBank';
+    if (keluar > 0 && masuk === 0) {
+      return { akun: 'Cash', metode: finalMetode || 'Transfer' };
+    }
+    return { akun: 'SeaBank', metode: finalMetode || 'SeaBank' };
   }
 
-  if (kat === 'transfer' || ket.includes('top up shopeepay')) {
-    if (masuk > 0 && keluar === 0) return 'ShopeePay';
-    if (keluar > 0 && masuk === 0) return 'Cash';
+  if (kat === 'transfer' || ket.includes('top up shopeepay') || ket.includes('topup shopeepay')) {
+    if (masuk > 0 && keluar === 0) return { akun: 'ShopeePay', metode: finalMetode || 'ShopeePay' };
+    if (keluar > 0 && masuk === 0) return { akun: 'Cash', metode: finalMetode || 'Transfer' };
   }
 
-  if (met === 'tunai' || met === 'cash' || akunLower === 'tunai') return 'Cash';
-
-  if (akunRaw.trim() && akunLower !== 'qris' && akunLower !== 'tunai') {
-    return akunRaw.trim();
+  if (detected) {
+    let finalAkun = detected.akun;
+    if (finalAkun === 'Tunai') finalAkun = 'Cash';
+    return {
+      akun: finalAkun,
+      metode: finalMetode || (finalAkun === 'Cash' ? 'Tunai' : finalAkun),
+    };
   }
-  return inferAccountFromMethod(metode);
+
+  if (akunRaw.trim() && akun !== 'qris' && akun !== 'tunai') {
+    return {
+      akun: akunRaw.trim(),
+      metode: finalMetode || akunRaw.trim(),
+    };
+  }
+
+  if (isQris || met === 'shopeepay') {
+    return { akun: 'ShopeePay', metode: isQris ? 'QRIS' : 'ShopeePay' };
+  }
+  if (met === 'tunai' || met === 'cash' || !met) {
+    return { akun: 'Cash', metode: 'Tunai' };
+  }
+
+  return {
+    akun: inferAccountFromMethod(metodeRaw),
+    metode: finalMetode,
+  };
 }
 
 export interface ParsedImportResult {
@@ -390,28 +643,30 @@ export async function parseImportFile(
   const fileType = ext === 'xlsx' ? 'XLSX' : ext === 'xls' ? 'XLS' : 'CSV';
 
   try {
-    let rawMatrix: unknown[][] = [];
-    let selectedSheetName: string | undefined;
+    const sheetsToParse: { sheetName: string; matrix: unknown[][] }[] = [];
 
     if (fileType === 'CSV') {
       const text = await file.text();
       const workbook = XLSX.read(text, { type: 'string', raw: true });
       const firstSheet = workbook.SheetNames[0];
+      let matrix: unknown[][] = [];
       if (firstSheet) {
-        rawMatrix = XLSX.utils.sheet_to_json<unknown[]>(workbook.Sheets[firstSheet], {
+        matrix = XLSX.utils.sheet_to_json<unknown[]>(workbook.Sheets[firstSheet], {
           header: 1,
           defval: '',
           raw: true,
         });
       }
 
-      // Handle semicolon-delimited CSV exports
       if (
-        rawMatrix.length > 0 &&
-        rawMatrix[0].length === 1 &&
-        String(rawMatrix[0][0] || '').includes(';')
+        matrix.length > 0 &&
+        matrix[0].length === 1 &&
+        String(matrix[0][0] || '').includes(';')
       ) {
-        rawMatrix = parseSemicolonCsvFallback(text);
+        matrix = parseSemicolonCsvFallback(text);
+      }
+      if (matrix.length > 0) {
+        sheetsToParse.push({ sheetName: firstSheet || 'CSV Data', matrix });
       }
     } else {
       const buffer = await file.arrayBuffer();
@@ -427,51 +682,35 @@ export async function parseImportFile(
         };
       }
 
-      // Prioritaskan sheet "Data Keuangan" (case-insensitive)
-      const dataKeuanganSheet =
-        workbook.SheetNames.find((name) => name.trim().toLowerCase() === 'data keuangan') ||
-        workbook.SheetNames.find((name) => name.trim().toLowerCase().includes('data keuangan'));
+      // Filter sheet summary/rekap jika ada sheet transaksi spesifik
+      const isSummarySheetName = (name: string) =>
+        /summary|rekap|ringkasan|dashboard|laporan|grafik|chart|kpi|overview/i.test(name.trim());
 
-      selectedSheetName = dataKeuanganSheet || workbook.SheetNames[0];
-      const sheet = workbook.Sheets[selectedSheetName];
-      rawMatrix = XLSX.utils.sheet_to_json<unknown[]>(sheet, {
-        header: 1,
-        defval: '',
-        raw: true,
-      });
+      const candidateSheets = workbook.SheetNames.filter((name) => !isSummarySheetName(name));
+      const targetSheets = candidateSheets.length > 0 ? candidateSheets : workbook.SheetNames;
+
+      for (const sheetName of targetSheets) {
+        const sheet = workbook.Sheets[sheetName];
+        if (!sheet) continue;
+        const matrix = XLSX.utils.sheet_to_json<unknown[]>(sheet, {
+          header: 1,
+          defval: '',
+          raw: true,
+        });
+        if (matrix && matrix.length > 0) {
+          sheetsToParse.push({ sheetName, matrix });
+        }
+      }
     }
 
-    if (!rawMatrix || rawMatrix.length < 2) {
+    if (sheetsToParse.length === 0) {
       return {
         fileName: file.name,
         fileType,
-        sheetName: selectedSheetName,
         totalRowsRead: 0,
         rows: [],
         failedRows: [],
-        error: 'File harus berisi baris header dan minimal 1 baris data transaksi.',
-      };
-    }
-
-    const headerIdx = findHeaderRowIndex(rawMatrix);
-    const rawHeaders = (rawMatrix[headerIdx] || []).map((h) => String(h ?? ''));
-    const normalizedHeaders = rawHeaders.map(normalizeHeader);
-
-    const hasTanggal = normalizedHeaders.includes('tanggal');
-    const hasKeterangan = normalizedHeaders.includes('keterangan');
-    const hasMasuk = normalizedHeaders.includes('masuk');
-    const hasKeluar = normalizedHeaders.includes('keluar');
-
-    if (!hasTanggal || (!hasMasuk && !hasKeluar)) {
-      return {
-        fileName: file.name,
-        fileType,
-        sheetName: selectedSheetName,
-        totalRowsRead: 0,
-        rows: [],
-        failedRows: [],
-        error:
-          'Import gagal: kolom "Tanggal", "Keterangan", "Pemasukan", atau "Pengeluaran" tidak ditemukan.',
+        error: 'Tidak ditemukan sheet data yang dapat dibaca di dalam file.',
       };
     }
 
@@ -499,160 +738,237 @@ export async function parseImportFile(
     const fileOccurrenceCounts = new Map<string, number>();
     const previewRows: ImportPreviewRow[] = [];
     const failedRows: { rowNumber: number; reason: string }[] = [];
+    const processedSheetNames: string[] = [];
     let totalRowsRead = 0;
 
-    for (let i = headerIdx + 1; i < rawMatrix.length; i += 1) {
-      const rowValues = rawMatrix[i];
-      if (!rowValues || rowValues.every((v) => String(v ?? '').trim() === '')) {
+    for (const { sheetName, matrix } of sheetsToParse) {
+      if (!matrix || matrix.length < 2) continue;
+
+      const headerIdx = findHeaderRowIndex(matrix);
+      if (headerIdx === -1) {
+        // Bukan tabel transaksi atau tidak memiliki header tanggal & kolom nominal/masuk/keluar
         continue;
       }
 
-      if (isTotalRow(rowValues)) {
+      const rawHeaders = (matrix[headerIdx] || []).map((h) => String(h ?? ''));
+      const normalizedHeaders = rawHeaders.map(normalizeHeader);
+
+      const hasTanggal = normalizedHeaders.includes('tanggal');
+      const hasKeterangan = normalizedHeaders.includes('keterangan');
+      const hasMasuk = normalizedHeaders.includes('masuk');
+      const hasKeluar = normalizedHeaders.includes('keluar');
+      const hasNominal = normalizedHeaders.includes('nominal');
+
+      if (!hasTanggal || (!hasMasuk && !hasKeluar && !hasNominal)) {
         continue;
       }
 
-      totalRowsRead += 1;
+      processedSheetNames.push(sheetName);
 
-      const record: Record<string, unknown> = {};
-      normalizedHeaders.forEach((key, idx) => {
-        if (key) record[key] = rowValues[idx];
-      });
-
-      const issues: string[] = [];
-      const tanggal = normalizeDate(record.tanggal);
-      if (!tanggal) {
-        issues.push(`Tanggal tidak valid (${String(record.tanggal || 'kosong')})`);
-      }
-
-      const masuk = hasMasuk ? parseCurrencyString(record.masuk) : 0;
-      const keluar = hasKeluar ? parseCurrencyString(record.keluar) : 0;
-
-      if (masuk === 0 && keluar === 0) {
-        issues.push('Pemasukan dan Pengeluaran bernilai 0');
-      }
-
-      let tipe: TransactionType = 'Pengeluaran';
-      const rawTipe = String(record.tipe || '').toLowerCase().trim();
-      if (rawTipe.includes('masuk') || rawTipe.includes('income') || (masuk > 0 && keluar === 0)) {
-        tipe = 'Pemasukan';
-      } else {
-        tipe = 'Pengeluaran';
-      }
-
-      const keteranganRaw = hasKeterangan ? String(record.keterangan ?? '').trim() : '';
-
-      // Ambil Kategori persis dari kolom Kategori di XLSX/CSV (JANGAN membuat kategori dari Keterangan)
-      const kategoriRaw = String(record.kategori ?? '').trim();
-      const kategori = kategoriRaw || (tipe === 'Pemasukan' ? 'Pemasukan' : 'Lainnya');
-
-      // Ambil Metode Pembayaran persis dari kolom Metode (QRIS tetap QRIS, Tunai tetap Tunai)
-      const metodeRaw = String(record.metode ?? '').trim();
-      const metode = metodeRaw || 'Tunai';
-
-      const akunRaw = String(record.akun ?? '').trim();
-      const akun = normalizeImportedAccount({
-        akunRaw,
-        metode,
-        keterangan: keteranganRaw,
-        kategori,
-        masuk,
-        keluar,
-      });
-
-      const keterangan = keteranganRaw || kategori;
-      if (!hasKeterangan || !keteranganRaw) {
-        issues.push('Keterangan kosong');
-      }
-
-      const rawJenis = String(record.jenisPengeluaran ?? '').trim();
-      const jenisPengeluaran = normalizeExpenseNatureFromImport({
-        rawJenis,
-        kategori,
-        tipe,
-      });
-
-      const rawBulan = String(record.bulan ?? '').trim();
-      const bulanKeyFromRaw = rawBulan ? parseBulanToPeriodKey(rawBulan) : '';
-      const monthKey = getMonthKey(tanggal) || bulanKeyFromRaw;
-      const bulan = rawBulan || (monthKey ? getMonthLabel(monthKey) : '');
-
-      const importedSaldo =
-        record.saldo !== undefined && String(record.saldo).trim() !== ''
-          ? parseCurrencyString(record.saldo, true)
-          : undefined;
-
-      const transferIdRaw = String(record.transferId ?? '').trim();
-      const explicitId = String(record.id ?? '').trim();
-
-      const rowSig = buildRowSignature({
-        tanggal: tanggal || '-',
-        tipe,
-        kategori,
-        jenisPengeluaran: String(jenisPengeluaran),
-        metode,
-        akun,
-        masuk,
-        keluar,
-        keterangan,
-      });
-      const occCount = (fileOccurrenceCounts.get(rowSig) || 0) + 1;
-      fileOccurrenceCounts.set(rowSig, occCount);
-
-      const existingCount = existingOccurrenceCounts.get(rowSig) || 0;
-      const saldoDup =
-        typeof importedSaldo === 'number' &&
-        !Number.isNaN(importedSaldo) &&
-        existingSaldoSignatures.has(`${rowSig}|${importedSaldo}`);
-
-      let isDuplicate = false;
-      if (explicitId) {
-        if (seenExplicitIds.has(explicitId)) {
-          isDuplicate = true;
-          issues.push(`ID duplikat (${explicitId})`);
-        } else {
-          seenExplicitIds.add(explicitId);
+      for (let i = headerIdx + 1; i < matrix.length; i += 1) {
+        const rowValues = matrix[i];
+        if (!rowValues || rowValues.every((v) => String(v ?? '').trim() === '')) {
+          continue;
         }
-      }
-      if (!isDuplicate && (existingCount >= occCount || saldoDup)) {
-        isDuplicate = true;
-        issues.push('Transaksi duplikat (sudah tersimpan sebelumnya)');
-      }
 
-      let status: ImportPreviewRow['status'] = 'Valid';
-      if (!tanggal) {
-        status = 'Invalid';
-        failedRows.push({
-          rowNumber: i + 1,
-          reason: `Tanggal tidak terbaca: "${String(record.tanggal ?? '')}"`,
-        });
-      } else if (masuk === 0 && keluar === 0) {
-        status = 'Invalid';
-        failedRows.push({
-          rowNumber: i + 1,
-          reason: 'Nominal pemasukan dan pengeluaran keduanya 0',
-        });
-      } else if (issues.length > 0) {
-        status = 'Warning';
-      }
+        if (isTotalRow(rowValues)) {
+          continue;
+        }
 
-      previewRows.push({
-        rowNumber: i + 1,
-        tanggal: tanggal || '-',
-        tipe,
-        kategori,
-        metode,
-        akun,
-        masuk,
-        keluar,
-        keterangan,
-        jenisPengeluaran,
-        bulan,
-        importedSaldo,
-        transferId: transferIdRaw || undefined,
-        status,
-        issues,
-        isDuplicate,
-      });
+        totalRowsRead += 1;
+
+        const record: Record<string, unknown> = {};
+        normalizedHeaders.forEach((key, idx) => {
+          if (key) record[key] = rowValues[idx];
+        });
+
+        const issues: string[] = [];
+        const tanggal = normalizeDate(record.tanggal);
+        if (!tanggal) {
+          issues.push(`Tanggal tidak valid (${String(record.tanggal || 'kosong')})`);
+        }
+
+        let masuk = hasMasuk ? parseCurrencyString(record.masuk) : 0;
+        let keluar = hasKeluar ? parseCurrencyString(record.keluar) : 0;
+
+        // Auto-split nominal rupiah tunggal jika masuk/keluar terpisah tidak ada
+        if (hasNominal && masuk === 0 && keluar === 0) {
+          const rawNom = record.nominal;
+          const nomVal = parseCurrencyString(rawNom);
+          const rawTipe = String(record.tipe || '').toLowerCase().trim();
+
+          if (
+            /pemasukan|masuk|income|kredit|credit|\+|in\b|terima|diterima/i.test(rawTipe)
+          ) {
+            masuk = nomVal;
+            keluar = 0;
+          } else if (
+            /pengeluaran|keluar|expense|debit|debet|-|out\b|bayar|beli|potong/i.test(rawTipe)
+          ) {
+            keluar = nomVal;
+            masuk = 0;
+          } else {
+            if (typeof rawNom === 'string' && rawNom.trim().startsWith('-')) {
+              keluar = nomVal;
+              masuk = 0;
+            } else {
+              const katLower = String(record.kategori || '').toLowerCase().trim();
+              if (/gaji|pemasukan|salary|income|uang saku|bonus/.test(katLower)) {
+                masuk = nomVal;
+                keluar = 0;
+              } else {
+                keluar = nomVal;
+                masuk = 0;
+              }
+            }
+          }
+        }
+
+        if (masuk === 0 && keluar === 0) {
+          issues.push('Pemasukan dan Pengeluaran bernilai 0');
+        }
+
+        let tipe: TransactionType = 'Pengeluaran';
+        const rawTipe = String(record.tipe || '').toLowerCase().trim();
+        if (
+          /pemasukan|masuk|income|credit|kredit|\+|in\b|terima/i.test(rawTipe) ||
+          (masuk > 0 && keluar === 0)
+        ) {
+          tipe = 'Pemasukan';
+        } else {
+          tipe = 'Pengeluaran';
+        }
+
+        const keteranganRaw = hasKeterangan ? String(record.keterangan ?? '').trim() : '';
+
+        // Kategori dinormalisasi rapi
+        const rawCat = String(record.kategori ?? '').trim();
+        const kategori = normalizeImportedCategory(rawCat, keteranganRaw, tipe);
+
+        // Deteksi metode pembayaran & akun universal
+        const akunRaw = String(record.akun ?? '').trim();
+        const metodeRaw = String(record.metode ?? '').trim();
+        const paymentAcc = detectPaymentAndAccount({
+          akunRaw,
+          metodeRaw,
+          keterangan: keteranganRaw,
+          kategori,
+          masuk,
+          keluar,
+        });
+
+        const akun = paymentAcc.akun;
+        const metode = paymentAcc.metode;
+
+        const keterangan = keteranganRaw || kategori;
+        if (!hasKeterangan || !keteranganRaw) {
+          issues.push('Keterangan kosong');
+        }
+
+        const rawJenis = String(record.jenisPengeluaran ?? '').trim();
+        const jenisPengeluaran = normalizeExpenseNatureFromImport({
+          rawJenis,
+          kategori,
+          keterangan,
+          tipe,
+        });
+
+        const rawBulan = String(record.bulan ?? '').trim();
+        const bulanKeyFromRaw = rawBulan ? parseBulanToPeriodKey(rawBulan) : '';
+        const monthKey = getMonthKey(tanggal) || bulanKeyFromRaw;
+        const bulan = rawBulan || (monthKey ? getMonthLabel(monthKey) : '');
+
+        const importedSaldo =
+          record.saldo !== undefined && String(record.saldo).trim() !== ''
+            ? parseCurrencyString(record.saldo, true)
+            : undefined;
+
+        const transferIdRaw = String(record.transferId ?? '').trim();
+        const explicitId = String(record.id ?? '').trim();
+
+        const rowSig = buildRowSignature({
+          tanggal: tanggal || '-',
+          tipe,
+          kategori,
+          jenisPengeluaran: String(jenisPengeluaran),
+          metode,
+          akun,
+          masuk,
+          keluar,
+          keterangan,
+        });
+        const occCount = (fileOccurrenceCounts.get(rowSig) || 0) + 1;
+        fileOccurrenceCounts.set(rowSig, occCount);
+
+        const existingCount = existingOccurrenceCounts.get(rowSig) || 0;
+        const saldoDup =
+          typeof importedSaldo === 'number' &&
+          !Number.isNaN(importedSaldo) &&
+          existingSaldoSignatures.has(`${rowSig}|${importedSaldo}`);
+
+        let isDuplicate = false;
+        if (explicitId) {
+          if (seenExplicitIds.has(explicitId)) {
+            isDuplicate = true;
+            issues.push(`ID duplikat (${explicitId})`);
+          } else {
+            seenExplicitIds.add(explicitId);
+          }
+        }
+        if (!isDuplicate && (existingCount >= occCount || saldoDup)) {
+          isDuplicate = true;
+          issues.push('Transaksi duplikat (sudah tersimpan sebelumnya)');
+        }
+
+        let status: ImportPreviewRow['status'] = 'Valid';
+        if (!tanggal) {
+          status = 'Invalid';
+          failedRows.push({
+            rowNumber: previewRows.length + failedRows.length + 1,
+            reason: `[${sheetName}] Tanggal tidak terbaca: "${String(record.tanggal ?? '')}"`,
+          });
+        } else if (masuk === 0 && keluar === 0) {
+          status = 'Invalid';
+          failedRows.push({
+            rowNumber: previewRows.length + failedRows.length + 1,
+            reason: `[${sheetName}] Nominal pemasukan dan pengeluaran keduanya 0`,
+          });
+        } else if (issues.length > 0) {
+          status = 'Warning';
+        }
+
+        previewRows.push({
+          rowNumber: previewRows.length + failedRows.length + 1,
+          tanggal: tanggal || '-',
+          tipe,
+          kategori,
+          metode,
+          akun,
+          masuk,
+          keluar,
+          keterangan,
+          jenisPengeluaran,
+          bulan,
+          importedSaldo,
+          transferId: transferIdRaw || undefined,
+          status,
+          issues,
+          isDuplicate,
+        });
+      }
+    }
+
+    if (previewRows.length === 0) {
+      return {
+        fileName: file.name,
+        fileType,
+        sheetName: processedSheetNames.join(', ') || undefined,
+        totalRowsRead,
+        rows: [],
+        failedRows,
+        error:
+          'Import gagal: kolom "Tanggal", "Keterangan", "Pemasukan", "Pengeluaran", atau "Nominal" tidak ditemukan pada sheet data.',
+      };
     }
 
     // Pasangkan baris Transfer / Setor Tabungan dengan transferId yang sama tanpa menambah baris baru
@@ -706,22 +1022,10 @@ export async function parseImportFile(
       }
     });
 
-    if (previewRows.length === 0) {
-      return {
-        fileName: file.name,
-        fileType,
-        sheetName: selectedSheetName,
-        totalRowsRead,
-        rows: [],
-        failedRows,
-        error: 'Tidak ada baris transaksi yang ditemukan di dalam file.',
-      };
-    }
-
     return {
       fileName: file.name,
       fileType,
-      sheetName: selectedSheetName,
+      sheetName: processedSheetNames.join(', ') || undefined,
       totalRowsRead,
       rows: previewRows,
       failedRows,
@@ -738,7 +1042,9 @@ export async function parseImportFile(
   }
 }
 
-export function buildAccountsFromTransactions(rows: Pick<Transaction, 'akun' | 'kategori' | 'jenisPengeluaran' | 'keterangan'>[]): Account[] {
+export function buildAccountsFromTransactions(
+  rows: Pick<Transaction, 'akun' | 'kategori' | 'jenisPengeluaran' | 'keterangan'>[]
+): Account[] {
   const result: Account[] = [];
   const seen = new Set<string>();
 
@@ -756,10 +1062,26 @@ export function buildAccountsFromTransactions(rows: Pick<Transaction, 'akun' | '
     });
   };
 
-  // Selalu sediakan 3 akun wajib (Cash, ShopeePay, SeaBank) agar SeaBank tidak pernah hilang
+  // Selalu sediakan 3 akun dasar (Cash, ShopeePay, SeaBank) agar tidak pernah hilang
   addAcc('Cash', 'Cash', 'Dompet tunai harian');
   addAcc('ShopeePay', 'E-Wallet', 'Akun digital ShopeePay / QRIS');
   addAcc('SeaBank', 'Bank', 'Rekening tabungan SeaBank');
+
+  const getAccTypeAndNote = (accName: string): { type: Account['type']; note: string } => {
+    const lower = accName.toLowerCase();
+    if (/\b(dana|ovo|gopay|linkaja|shopeepay|spay)\b/.test(lower)) {
+      return { type: 'E-Wallet', note: `Dompet digital ${accName}` };
+    }
+    if (
+      /\b(bca|mandiri|bri|bni|jago|blu|neobank|allo|cimb|permata|bsi|jenius|seabank)\b/.test(lower)
+    ) {
+      return { type: 'Bank', note: `Rekening bank ${accName}` };
+    }
+    if (lower === 'cash' || lower === 'tunai') {
+      return { type: 'Cash', note: 'Dompet tunai' };
+    }
+    return { type: 'Bank', note: `Akun ${accName}` };
+  };
 
   rows.forEach((r) => {
     const accName = (r.akun || '').trim();
@@ -773,11 +1095,8 @@ export function buildAccountsFromTransactions(rows: Pick<Transaction, 'akun' | '
     } else if (compact === 'seabank') {
       addAcc('SeaBank', 'Bank', 'Rekening tabungan SeaBank');
     } else if (accName && compact !== 'qris') {
-      addAcc(
-        accName,
-        lower.includes('dana') || lower.includes('ovo') || lower.includes('gopay') ? 'E-Wallet' : 'Bank',
-        'Akun dari data import'
-      );
+      const { type, note } = getAccTypeAndNote(accName);
+      addAcc(accName, type, note);
     }
   });
 
@@ -932,4 +1251,132 @@ export function exportTransactionsToExcel(
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, worksheet, 'Data Keuangan');
   XLSX.writeFile(workbook, filename);
+}
+
+/**
+ * Ekstraksi Spreadsheet ID dan GID opsional dari URL Google Sheets.
+ * Mendukung format URL edit, view, pubhtml, atau query parameters.
+ */
+export function extractGoogleSheetsInfo(url: string): {
+  spreadsheetId: string | null;
+  gid: string | null;
+} {
+  const trimmed = url.trim();
+  const idMatch = trimmed.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
+  const spreadsheetId = idMatch ? idMatch[1] : null;
+
+  let gid: string | null = null;
+  const gidMatch = trimmed.match(/[?&#]gid=([0-9]+)/);
+  if (gidMatch) {
+    gid = gidMatch[1];
+  }
+
+  return { spreadsheetId, gid };
+}
+
+/**
+ * Mengambil workbook Google Sheets langsung dalam format .xlsx (multi-sheet support)
+ * atau fallback .csv jika diperlukan.
+ */
+export async function fetchGoogleSheetAsFile(url: string): Promise<File> {
+  const { spreadsheetId, gid } = extractGoogleSheetsInfo(url);
+  if (!spreadsheetId) {
+    throw new Error('Link Google Sheets tidak valid. Pastikan menyalin URL lengkap dari browser.');
+  }
+
+  const xlsxUrl = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/export?format=xlsx`;
+
+  let response: Response;
+  try {
+    response = await fetch(xlsxUrl, { redirect: 'follow' });
+  } catch {
+    throw new Error(
+      'Gagal mengakses Google Sheets. Pastikan izin berbagi sudah diubah ke "Siapa saja yang memiliki link (Viewer)" dan koneksi internet stabil.'
+    );
+  }
+
+  if (!response.ok) {
+    if (gid) {
+      const csvUrl = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/export?format=csv&gid=${gid}`;
+      try {
+        const csvResponse = await fetch(csvUrl, { redirect: 'follow' });
+        if (csvResponse.ok) {
+          const blob = await csvResponse.blob();
+          return new File([blob], `GoogleSheet-${spreadsheetId}.csv`, { type: 'text/csv' });
+        }
+      } catch {
+        // Abaikan dan gunakan pesan error di bawah
+      }
+    }
+
+    if (response.status === 401 || response.status === 403 || response.status === 404) {
+      throw new Error(
+        'Gagal mengakses Google Sheets. Pastikan izin berbagi sudah diubah ke "Siapa saja yang memiliki link (Viewer)".'
+      );
+    }
+
+    throw new Error(
+      `Gagal mengunduh Google Sheets (Status ${response.status}). Pastikan dokumen tidak terkunci dan tautan masih aktif.`
+    );
+  }
+
+  const contentType = response.headers.get('content-type') || '';
+  if (contentType.includes('text/html')) {
+    throw new Error(
+      'Gagal mengakses Google Sheets. Dokumen bersifat privat. Pastikan izin berbagi sudah diubah ke "Siapa saja yang memiliki link (Viewer)".'
+    );
+  }
+
+  const arrayBuffer = await response.arrayBuffer();
+  if (arrayBuffer.byteLength < 50) {
+    const textPreview = new TextDecoder().decode(arrayBuffer);
+    if (textPreview.includes('<html') || textPreview.includes('<!DOCTYPE')) {
+      throw new Error(
+        'Gagal mengakses Google Sheets. Dokumen bersifat privat. Pastikan izin berbagi sudah diubah ke "Siapa saja yang memiliki link (Viewer)".'
+      );
+    }
+  }
+
+  let fileName = `GoogleSheet-${spreadsheetId}.xlsx`;
+  const disposition = response.headers.get('content-disposition');
+  if (disposition) {
+    const fnMatch = disposition.match(/filename\*?=(?:UTF-8'')?["']?([^"';]+)["']?/i);
+    if (fnMatch && fnMatch[1]) {
+      try {
+        fileName = decodeURIComponent(fnMatch[1].trim());
+      } catch {
+        fileName = fnMatch[1].trim();
+      }
+      if (!fileName.toLowerCase().endsWith('.xlsx') && !fileName.toLowerCase().endsWith('.csv')) {
+        fileName += '.xlsx';
+      }
+    }
+  }
+
+  return new File([arrayBuffer], fileName, {
+    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  });
+}
+
+/**
+ * Mengunduh dan langsung mem-parsing Google Sheets via URL menggunakan parser pintar aplikasi.
+ */
+export async function parseGoogleSheetUrl(
+  url: string,
+  existingTransactions: Transaction[] = []
+): Promise<ParsedImportResult> {
+  try {
+    const file = await fetchGoogleSheetAsFile(url);
+    const parsed = await parseImportFile(file, existingTransactions);
+    return parsed;
+  } catch (err) {
+    return {
+      fileName: 'Google Sheets',
+      fileType: 'XLSX',
+      totalRowsRead: 0,
+      rows: [],
+      failedRows: [],
+      error: err instanceof Error ? err.message : 'Gagal memproses link Google Sheets.',
+    };
+  }
 }

@@ -61,12 +61,12 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         {toasts.map((t) => {
           const borderClass =
             t.type === 'success'
-              ? 'border-emerald-200 dark:border-emerald-800'
+              ? 'border-emerald-500/25'
               : t.type === 'error'
-                ? 'border-rose-200 dark:border-rose-800'
+                ? 'border-rose-500/25'
                 : t.type === 'warning'
-                  ? 'border-amber-200 dark:border-amber-800'
-                  : 'border-slate-200 dark:border-slate-800';
+                  ? 'border-amber-500/25'
+                  : 'border-zinc-200 dark:border-white/[0.08]';
 
           const Icon =
             t.type === 'success'
@@ -79,30 +79,30 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
           const iconColor =
             t.type === 'success'
-              ? 'text-emerald-600 dark:text-emerald-400'
+              ? 'text-emerald-600 dark:text-emerald-400/90'
               : t.type === 'error'
-                ? 'text-rose-600 dark:text-rose-400'
+                ? 'text-rose-600 dark:text-rose-400/90'
                 : t.type === 'warning'
-                  ? 'text-amber-600 dark:text-amber-400'
-                  : 'text-teal-600 dark:text-teal-400';
+                  ? 'text-amber-600 dark:text-amber-400/90'
+                  : 'text-zinc-500 dark:text-zinc-400';
 
           return (
             <div
               key={t.id}
-              className={`pointer-events-auto flex items-start gap-3 rounded-xl border ${borderClass} bg-white/95 dark:bg-slate-900/95 backdrop-blur-md p-3.5 shadow-lg transition-all`}
+              className={`pointer-events-auto flex items-start gap-3 rounded-xl border ${borderClass} bg-white/95 dark:bg-[#121215]/95 backdrop-blur-md p-3.5 shadow-lg transition-all`}
             >
               <Icon className={`h-5 w-5 shrink-0 mt-0.5 ${iconColor}`} />
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{t.title}</p>
+                <p className="text-sm font-semibold text-zinc-900 dark:text-[#FAFAFA]">{t.title}</p>
                 {t.description && (
-                  <p className="mt-0.5 text-xs text-slate-600 dark:text-slate-400">{t.description}</p>
+                  <p className="mt-0.5 text-xs text-zinc-600 dark:text-zinc-400">{t.description}</p>
                 )}
               </div>
               <button
                 type="button"
                 onClick={() => dismissToast(t.id)}
                 aria-label="Tutup notifikasi"
-                className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+                className="rounded-lg p-1 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-white/[0.06] dark:hover:text-[#FAFAFA]"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -116,30 +116,30 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         <div
           role="dialog"
           aria-modal="true"
-          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 backdrop-blur-xs p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-xs p-4"
         >
-          <div className="w-full max-w-md rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-xl">
-            <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+          <div className="w-full max-w-md rounded-2xl border border-zinc-200 dark:border-white/[0.08] bg-white dark:bg-[#121215] p-6 shadow-xl">
+            <h3 className="text-lg font-semibold text-zinc-900 dark:text-[#FAFAFA]">
               {confirmState.options.title}
             </h3>
-            <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">
+            <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
               {confirmState.options.message}
             </p>
             <div className="mt-6 flex items-center justify-end gap-3">
               <button
                 type="button"
                 onClick={() => handleConfirmChoice(false)}
-                className="min-h-[40px] rounded-xl border border-slate-200 dark:border-slate-700 px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                className="min-h-[40px] rounded-xl border border-zinc-300 dark:border-white/[0.12] bg-white dark:bg-[#18181B] px-4 py-2 text-sm font-medium text-zinc-700 dark:text-[#FAFAFA] hover:bg-zinc-100 dark:hover:bg-white/[0.08] transition-colors"
               >
                 {confirmState.options.cancelLabel || 'Batal'}
               </button>
               <button
                 type="button"
                 onClick={() => handleConfirmChoice(true)}
-                className={`min-h-[40px] rounded-xl px-4 py-2 text-sm font-medium text-white transition-colors ${
+                className={`min-h-[40px] rounded-xl px-4 py-2 text-sm font-semibold transition-colors ${
                   confirmState.options.destructive
-                    ? 'bg-rose-600 hover:bg-rose-700'
-                    : 'bg-teal-700 hover:bg-teal-800'
+                    ? 'border border-rose-500/30 bg-rose-600/90 text-white hover:bg-rose-600'
+                    : 'bg-zinc-900 text-white hover:bg-zinc-800 dark:bg-[#FAFAFA] dark:text-[#09090B] dark:hover:bg-zinc-200'
                 }`}
               >
                 {confirmState.options.confirmLabel || 'Konfirmasi'}

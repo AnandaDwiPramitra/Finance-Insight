@@ -244,7 +244,7 @@ export function removeGeminiApiKey(): void {
 
 export function getStoredTheme(): 'light' | 'dark' {
   const val = localStorage.getItem(KEYS.THEME);
-  return val === 'dark' ? 'dark' : 'light';
+  return val === 'light' ? 'light' : 'dark';
 }
 
 export function saveStoredTheme(theme: 'light' | 'dark'): void {

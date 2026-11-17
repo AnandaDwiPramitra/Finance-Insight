@@ -6,6 +6,7 @@ import {
   filterTransactionsByPeriod,
 } from './calculations';
 import { formatMoney, getMonthKey, getMonthLabel } from './formatMoney';
+import { isEssentialCategory } from './optimization';
 
 export interface PeriodComparison {
   hasPrevious: boolean;
@@ -150,13 +151,25 @@ export function generateFinancialInsights(params: {
     const top = categories[0];
     const expBase = kpi.consumptionExpense > 0 ? kpi.consumptionExpense : kpi.totalExpense;
     const pct = expBase > 0 ? Math.round((top.total / expBase) * 1000) / 10 : 0;
-    insights.push({
-      id: 'top-category',
-      type: pct > 40 ? 'warning' : 'info',
-      category: 'Kategori Terbesar',
-      title: `Pengeluaran terbesar berasal dari kategori ${top.kategori}`,
-      message: `Total pengeluaran kategori ${top.kategori} mencapai ${formatMoney(top.total)} (${pct}% dari total pengeluaran konsumsi periode ini).`,
-    });
+    const isEssential = isEssentialCategory(top.kategori);
+
+    if (isEssential) {
+      insights.push({
+        id: 'top-category',
+        type: 'info',
+        category: 'Kategori Terbesar',
+        title: `Pengeluaran terbesar berasal dari kebutuhan primer ${top.kategori}`,
+        message: `Total alokasi kategori ${top.kategori} sebesar ${formatMoney(top.total)} (${pct}% dari total pengeluaran konsumsi). Ini merupakan pos kebutuhan rutin operasional harian yang stabil.`,
+      });
+    } else {
+      insights.push({
+        id: 'top-category',
+        type: pct > 35 ? 'warning' : 'info',
+        category: 'Kategori Terbesar',
+        title: `Pengeluaran terbesar berasal dari kategori ${top.kategori}`,
+        message: `Total pengeluaran kategori ${top.kategori} mencapai ${formatMoney(top.total)} (${pct}% dari total pengeluaran konsumsi periode ini).`,
+      });
+    }
   }
 
   // 2. Tren Perbandingan Periode Sebelumnya (hanya jika data pembanding tersedia)

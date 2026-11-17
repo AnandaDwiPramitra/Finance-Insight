@@ -54,34 +54,34 @@ export const ExportDataButton: React.FC<ExportDataButtonProps> = ({
         onClick={() => setOpen((prev) => !prev)}
         aria-expanded={open}
         aria-haspopup="menu"
-        className="min-h-[42px] inline-flex items-center gap-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3.5 py-2 text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors whitespace-nowrap shrink-0"
+        className="min-h-[42px] inline-flex items-center gap-1.5 rounded-xl border border-zinc-300 dark:border-white/[0.12] bg-white dark:bg-[#18181B] px-3.5 py-2 text-sm font-medium text-zinc-800 dark:text-[#FAFAFA] hover:bg-zinc-100 dark:hover:bg-white/[0.08] transition-colors whitespace-nowrap shrink-0"
       >
-        <Download className="h-4 w-4" />
+        <Download className="h-4 w-4 text-zinc-500 dark:text-zinc-400" />
         <span>Export Data</span>
-        <ChevronDown className={`h-3.5 w-3.5 transition-transform ${open ? 'rotate-180' : ''}`} />
+        <ChevronDown className={`h-3.5 w-3.5 text-zinc-500 dark:text-zinc-400 transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>
 
       {open && (
         <div
           role="menu"
-          className="absolute right-0 z-30 mt-2 w-48 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-1.5 shadow-lg"
+          className="absolute right-0 z-30 mt-2 w-48 rounded-xl border border-zinc-200 dark:border-white/[0.08] bg-white dark:bg-[#121215] p-1.5 shadow-xl"
         >
           <button
             type="button"
             role="menuitem"
             onClick={handleExportXlsx}
-            className="w-full flex items-center gap-2.5 rounded-lg px-3 py-2 text-left text-xs sm:text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
+            className="w-full flex items-center gap-2.5 rounded-lg px-3 py-2 text-left text-xs sm:text-sm font-medium text-zinc-800 dark:text-[#FAFAFA] hover:bg-zinc-100 dark:hover:bg-white/[0.06]"
           >
-            <FileSpreadsheet className="h-4 w-4 text-teal-700 dark:text-teal-400" />
+            <FileSpreadsheet className="h-4 w-4 text-zinc-500 dark:text-zinc-400" />
             <span>Export XLSX</span>
           </button>
           <button
             type="button"
             role="menuitem"
             onClick={handleExportCsv}
-            className="w-full flex items-center gap-2.5 rounded-lg px-3 py-2 text-left text-xs sm:text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
+            className="w-full flex items-center gap-2.5 rounded-lg px-3 py-2 text-left text-xs sm:text-sm font-medium text-zinc-800 dark:text-[#FAFAFA] hover:bg-zinc-100 dark:hover:bg-white/[0.06]"
           >
-            <FileText className="h-4 w-4 text-slate-600 dark:text-slate-400" />
+            <FileText className="h-4 w-4 text-zinc-500 dark:text-zinc-400" />
             <span>Export CSV</span>
           </button>
         </div>

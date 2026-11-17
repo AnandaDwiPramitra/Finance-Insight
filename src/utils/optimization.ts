@@ -2,6 +2,36 @@ import { OptimizationResult, Transaction } from '../types/finance';
 import { buildCategoryExpenseData, computeKpis } from './calculations';
 import { formatMoney, getMonthLabel } from './formatMoney';
 
+export const ESSENTIAL_CATEGORY_KEYWORDS = [
+  'transportasi',
+  'bensin',
+  'bbm',
+  'pertalite',
+  'pertamax',
+  'parkir',
+  'ongkir',
+  'tagihan',
+  'utilitas',
+  'internet',
+  'kuota',
+  'pulsa',
+  'listrik',
+  'air',
+  'pdam',
+  'sewa',
+  'kos',
+  'kontrakan',
+  'kesehatan',
+  'obat',
+  'pendidikan',
+  'kebutuhan pribadi',
+];
+
+export function isEssentialCategory(kategori: string): boolean {
+  const lower = (kategori || '').toLowerCase().trim();
+  return ESSENTIAL_CATEGORY_KEYWORDS.some((kw) => lower.includes(kw));
+}
+
 export function computeOptimization(params: {
   transactions: Transaction[];
   selectedPeriod: string;
@@ -83,19 +113,40 @@ export function computeOptimization(params: {
         priority: 'Rendah',
       });
     }
-
     const topCategories = buildCategoryExpenseData(transactions).filter(
-      (c) => !['tabungan', 'transfer'].includes(c.kategori.toLowerCase())
+      (c) => !['tabungan', 'transfer'].includes(c.kategori.toLowerCase().trim())
     );
     if (topCategories.length > 0) {
       const biggest = topCategories[0];
-      const cut10 = Math.round(biggest.total * 0.1);
-      recommendations.push({
-        title: `Evaluasi efisiensi kategori ${biggest.kategori}`,
-        detail: `Sebagai kategori pengeluaran terbesar (${formatMoney(biggest.total)}), penghematan 10% pada pos ini langsung menyumbang ${formatMoney(cut10)} ke tabungan.`,
-        potentialSaving: cut10,
-        priority: 'Sedang',
-      });
+      const isBiggestEssential = isEssentialCategory(biggest.kategori);
+
+      if (isBiggestEssential) {
+        recommendations.push({
+          title: `Pos Kebutuhan Primer — ${biggest.kategori}`,
+          detail: `${biggest.kategori} merupakan pengeluaran terbesar (${formatMoney(biggest.total)}), namun merupakan pos kebutuhan rutin operasional primer. Pemangkasan drastis tidak disarankan agar tidak mengganggu mobilitas harian. Jaga efisiensi pemakaian secara wajar.`,
+          potentialSaving: 0,
+          priority: 'Rendah',
+        });
+
+        const discretionaryTop = topCategories.find((c) => !isEssentialCategory(c.kategori));
+        if (discretionaryTop && discretionaryTop.total > 0) {
+          const cut10 = Math.round(discretionaryTop.total * 0.1);
+          recommendations.push({
+            title: `Evaluasi efisiensi kategori ${discretionaryTop.kategori}`,
+            detail: `Sebagai pos pengeluaran diskresioner/fleksibel (${formatMoney(discretionaryTop.total)}), penghematan 10% pada pos ini langsung menyumbang ${formatMoney(cut10)} ke tabungan tanpa mengorbankan kebutuhan pokok.`,
+            potentialSaving: cut10,
+            priority: 'Sedang',
+          });
+        }
+      } else {
+        const cut10 = Math.round(biggest.total * 0.1);
+        recommendations.push({
+          title: `Evaluasi efisiensi kategori ${biggest.kategori}`,
+          detail: `Sebagai kategori pengeluaran terbesar (${formatMoney(biggest.total)}), penghematan 10% pada pos ini langsung menyumbang ${formatMoney(cut10)} ke tabungan.`,
+          potentialSaving: cut10,
+          priority: 'Sedang',
+        });
+      }
     }
 
     if (kpi.balance >= target && target > 0 && kpi.savingsFromTransactions < target) {
