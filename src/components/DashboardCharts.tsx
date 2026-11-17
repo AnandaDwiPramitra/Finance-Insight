@@ -34,11 +34,17 @@ function getNeedsWantsColor(name: string): string {
 
 function getAccountBarColor(name: string): string {
   const lower = name.toLowerCase();
-  if (lower.includes('tabungan') || lower.includes('seabank')) return '#B45309';
-  if (lower.includes('total')) return '#6D28D9';
-  if (lower.includes('likuid') || lower.includes('sisa')) return '#0284C7';
-  if (lower.includes('digital') || lower.includes('shopee')) return '#0369A1';
-  return '#0F766E';
+  if (lower.includes('tabungan') || lower.includes('seabank')) return '#F59E0B'; // Amber
+  if (lower.includes('total')) return '#8B5CF6'; // Slate/Violet
+  if (lower.includes('sisa') || lower.includes('likuid')) return '#0EA5E9'; // Sky Blue
+  if (lower.includes('digital') || lower.includes('shopee')) return '#6366F1'; // Indigo
+  return '#0D9488'; // Deep Teal (Uang Tunai)
+}
+
+function getMoneyActivityBarColor(name: string): string {
+  if (name === 'Masuk') return '#10B981'; // Balanced Emerald
+  if (name === 'Keluar') return '#F43F5E'; // Balanced Rose
+  return '#0EA5E9'; // Sky Blue
 }
 
 function formatPercentId(pct: number): string {
@@ -352,50 +358,65 @@ const renderHorizontalCategoryBarLabel = (props: BarLabelRenderProps) => {
   if (value <= 0) return null;
 
   const text = formatMoney(value);
-  const fitsInside = width >= 84;
-  const textX = fitsInside ? x + width - 8 : x + width + 6;
+  const textX = x + width + 8;
   const textY = y + height / 2;
 
   return (
     <text
       x={textX}
       y={textY}
-      textAnchor={fitsInside ? 'end' : 'start'}
+      textAnchor="start"
       dominantBaseline="central"
-      className={
-        fitsInside
-          ? 'fill-[#FAFAFA] font-mono tabular-nums text-[10px] font-bold pointer-events-none'
-          : 'fill-zinc-900 dark:fill-[#FAFAFA] font-mono tabular-nums text-[10px] font-semibold pointer-events-none'
-      }
+      className="fill-zinc-900 dark:fill-[#FAFAFA] font-mono-num tabular-nums text-[11px] font-bold pointer-events-none"
     >
       {text}
     </text>
   );
 };
 
-const renderVerticalAccountBarLabel = (props: BarLabelRenderProps) => {
+const renderVerticalActivityBarLabel = (props: BarLabelRenderProps) => {
   const x = Number(props.x) || 0;
   const y = Number(props.y) || 0;
   const width = Number(props.width) || 0;
-  const height = Number(props.height) || 0;
   const value = Number(props.value) || 0;
+  if (value <= 0) return null;
 
   const text = formatMoney(value);
-  const fitsInside = height >= 26 && width >= 48;
   const centerX = x + width / 2;
-  const textY = fitsInside ? y + height / 2 : Math.max(12, y - 8);
+  const textY = Math.max(14, y - 8);
 
   return (
     <text
       x={centerX}
       y={textY}
       textAnchor="middle"
+      dominantBaseline="auto"
+      className="fill-zinc-900 dark:fill-[#FAFAFA] font-mono-num tabular-nums text-[11px] font-bold pointer-events-none"
+    >
+      {text}
+    </text>
+  );
+};
+
+const renderHorizontalAccountBarLabel = (props: BarLabelRenderProps) => {
+  const x = Number(props.x) || 0;
+  const y = Number(props.y) || 0;
+  const width = Number(props.width) || 0;
+  const height = Number(props.height) || 0;
+  const value = Number(props.value) || 0;
+  if (value < 0) return null;
+
+  const text = formatMoney(value);
+  const textX = x + width + 8;
+  const textY = y + height / 2;
+
+  return (
+    <text
+      x={textX}
+      y={textY}
+      textAnchor="start"
       dominantBaseline="central"
-      className={
-        fitsInside
-          ? 'fill-[#FAFAFA] font-mono tabular-nums text-[10px] font-bold pointer-events-none'
-          : 'fill-zinc-900 dark:fill-[#FAFAFA] font-mono tabular-nums text-[10px] font-bold pointer-events-none'
-      }
+      className="fill-zinc-900 dark:fill-[#FAFAFA] font-mono-num tabular-nums text-[11px] font-bold pointer-events-none"
     >
       {text}
     </text>
@@ -662,9 +683,12 @@ export const DashboardCharts: React.FC = () => {
   const trendScale = computeNiceAxisScale(
     visibleTrendData.flatMap((d) => [d.pemasukan, d.pengeluaran, d.uangTunai, d.shopeePay])
   );
-  const activityScale = computeNiceAxisScale(moneyActivityData.map((d) => d.nominal));
-  const categoryScale = computeNiceAxisScale(categoryExpenseData.map((d) => d.total));
-  const accountScale = computeNiceAxisScale(cashDigitalChartData.map((d) => d.saldo));
+  const activityMax = Math.max(0, ...moneyActivityData.map((d) => d.nominal));
+  const activityScale = computeNiceAxisScale([0, Math.round(activityMax * 1.18)]);
+  const categoryMax = Math.max(0, ...categoryExpenseData.map((d) => d.total));
+  const categoryScale = computeNiceAxisScale([0, Math.round(categoryMax * 1.25)]);
+  const accountMax = Math.max(0, ...cashDigitalChartData.map((d) => d.saldo));
+  const accountScale = computeNiceAxisScale([0, Math.round(accountMax * 1.15)]);
 
   const activeRangeLabel =
     visibleTrendData.length > 0
@@ -885,7 +909,7 @@ export const DashboardCharts: React.FC = () => {
         >
           <div className="h-80 w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={moneyActivityData} margin={{ top: 10, right: 12, left: 6, bottom: 0 }}>
+              <BarChart data={moneyActivityData} margin={{ top: 28, right: 16, left: 6, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} />
                 <XAxis dataKey="name" tick={{ fontSize: 12, fill: axisTickColor }} stroke={axisStroke} />
                 <YAxis
@@ -904,23 +928,16 @@ export const DashboardCharts: React.FC = () => {
                       valueLabelOverride="Nominal"
                       resolveValueColor={(item) => {
                         const nm = String(item.payload?.name || '');
-                        if (nm === 'Masuk') return isDark ? '#34D399' : '#059669';
-                        if (nm === 'Keluar') return isDark ? '#FB7185' : '#E11D48';
-                        return isDark ? '#38BDF8' : '#0284C7';
+                        return getMoneyActivityBarColor(nm);
                       }}
                     />
                   }
                 />
                 <Bar dataKey="nominal" radius={[8, 8, 0, 0]}>
-                  {moneyActivityData.map((entry, idx) => {
-                    const color =
-                      entry.name === 'Masuk'
-                        ? '#10B981'
-                        : entry.name === 'Keluar'
-                          ? '#F43F5E'
-                          : '#38BDF8';
-                    return <Cell key={idx} fill={color} />;
-                  })}
+                  {moneyActivityData.map((entry, idx) => (
+                    <Cell key={idx} fill={getMoneyActivityBarColor(entry.name)} />
+                  ))}
+                  <LabelList dataKey="nominal" content={renderVerticalActivityBarLabel} />
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
@@ -940,7 +957,7 @@ export const DashboardCharts: React.FC = () => {
               <BarChart
                 data={categoryExpenseData}
                 layout="vertical"
-                margin={{ top: 4, right: 86, left: 10, bottom: 4 }}
+                margin={{ top: 4, right: 100, left: 10, bottom: 4 }}
               >
                 <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} />
                 <XAxis
@@ -1129,18 +1146,28 @@ export const DashboardCharts: React.FC = () => {
           title="Uang Tunai vs Digital & Tabungan"
           subtitle="Komposisi kas likuid (Uang Tunai, ShopeePay) terpisah dari tabungan SeaBank"
         >
-          <div className="h-64 w-full">
+          <div className="h-72 w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={cashDigitalChartData} margin={{ top: 24, right: 10, left: 6, bottom: 0 }}>
+              <BarChart
+                data={cashDigitalChartData}
+                layout="vertical"
+                margin={{ top: 4, right: 96, left: 10, bottom: 4 }}
+              >
                 <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} />
-                <XAxis dataKey="name" tick={{ fontSize: 10, fill: axisTickColor }} stroke={axisStroke} />
-                <YAxis
+                <XAxis
+                  type="number"
                   domain={accountScale.domain}
                   ticks={accountScale.ticks}
                   tickFormatter={(v) => formatMoney(v)}
-                  tick={{ fontSize: 11, fill: axisTickColor }}
+                  tick={{ fontSize: 10, fill: axisTickColor }}
                   stroke={axisStroke}
-                  width={92}
+                />
+                <YAxis
+                  type="category"
+                  dataKey="name"
+                  width={132}
+                  tick={{ fontSize: 11, fill: isDark ? '#E4E4E7' : '#3F3F46' }}
+                  stroke={axisStroke}
                 />
                 <Tooltip
                   cursor={barHoverCursor}
@@ -1148,30 +1175,20 @@ export const DashboardCharts: React.FC = () => {
                     <CustomChartTooltip
                       isDark={isDark}
                       valueLabelOverride="Saldo"
-                      resolveValueColor={(item) => {
-                        const nm = String(item.payload?.name || '').toLowerCase();
-                        if (nm.includes('tabungan') || nm.includes('seabank')) {
-                          return isDark ? '#FBBF24' : '#D97706';
-                        }
-                        if (nm.includes('total')) return isDark ? '#A78BFA' : '#7C3AED';
-                        if (nm.includes('likuid') || nm.includes('digital')) {
-                          return isDark ? '#38BDF8' : '#0284C7';
-                        }
-                        return isDark ? '#34D399' : '#059669';
-                      }}
+                      resolveValueColor={(item) => getAccountBarColor(String(item.payload?.name || ''))}
                     />
                   }
                 />
-                <Bar dataKey="saldo" radius={[6, 6, 0, 0]}>
+                <Bar dataKey="saldo" radius={[0, 6, 6, 0]}>
                   {cashDigitalChartData.map((entry, idx) => (
                     <Cell key={idx} fill={getAccountBarColor(entry.name)} />
                   ))}
-                  <LabelList dataKey="saldo" content={renderVerticalAccountBarLabel} />
+                  <LabelList dataKey="saldo" content={renderHorizontalAccountBarLabel} />
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2 border-t border-zinc-100 dark:border-white/[0.08] text-xs">
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 pt-2 border-t border-zinc-100 dark:border-white/[0.08] text-xs">
             <div>
               <span className="text-zinc-500 dark:text-zinc-400 block">Uang Tunai</span>
               <span className="font-mono-num tabular-nums font-semibold text-teal-600 dark:text-teal-400">
@@ -1180,20 +1197,26 @@ export const DashboardCharts: React.FC = () => {
             </div>
             <div>
               <span className="text-zinc-500 dark:text-zinc-400 block">Saldo Digital</span>
-              <span className="font-mono-num tabular-nums font-semibold text-sky-600 dark:text-sky-400">
+              <span className="font-mono-num tabular-nums font-semibold text-indigo-600 dark:text-indigo-400">
                 {formatMoney(digitalBalance)}
               </span>
             </div>
             <div>
-              <span className="text-zinc-500 dark:text-zinc-400 block">Sisa Saldo</span>
+              <span className="text-zinc-500 dark:text-zinc-400 block">Sisa Kas Likuid</span>
               <span className="font-mono-num tabular-nums font-semibold text-sky-600 dark:text-sky-400">
                 {formatMoney(liquidBalance)}
               </span>
             </div>
             <div>
-              <span className="text-zinc-500 dark:text-zinc-400 block">Total Tabungan</span>
+              <span className="text-zinc-500 dark:text-zinc-400 block">Tabungan (SeaBank)</span>
               <span className="font-mono-num tabular-nums font-semibold text-amber-600 dark:text-amber-400">
                 {formatMoney(seaBankBalance)}
+              </span>
+            </div>
+            <div className="col-span-2 sm:col-span-1">
+              <span className="text-zinc-500 dark:text-zinc-400 block">Total Aset</span>
+              <span className="font-mono-num tabular-nums font-semibold text-violet-600 dark:text-violet-400">
+                {formatMoney(totalAccountBalance)}
               </span>
             </div>
           </div>
